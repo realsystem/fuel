@@ -1,6 +1,8 @@
-# fuel_economy
+# fuel
 
 Reading fuel pump displays from photos.
+
+**Live app: https://realsystem.github.io/fuel/**. It runs entirely in your browser; photos are never uploaded.
 
 - `web/`: **Fuel Photo Log**, a browser app that reads pump photos locally and
   exports a CSV. Start here: [web/README.md](web/README.md), plus

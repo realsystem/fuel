@@ -4,6 +4,8 @@ A small browser utility that reads fuel pump displays from photos. You upload
 photos, it reads the numbers locally, you check and correct them, and you
 export a CSV.
 
+**Live:** https://realsystem.github.io/fuel/ (deployed from `main` by `.github/workflows/pages.yml`).
+
 - **Private.** Photos are processed in your browser and never uploaded. The
   page has a Content-Security-Policy that blocks connections to other hosts.
   There is no analytics and no account.
