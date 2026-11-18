@@ -7,7 +7,7 @@ interface Props {
   records: FuelRecord[];
   urls: Map<string, string>;
   busy: boolean;
-  onEdit: (id: string, value: number | null) => void;
+  onEdit: (id: string, field: 'odometer' | 'trip', value: number | null) => void;
   onConfirm: (id: string, confirmed: boolean) => void;
   onReprocess: (id: string) => void;
   onRemove: (id: string) => void;
@@ -29,6 +29,7 @@ export function OdometerTable(props: Props) {
             <th>Image</th>
             <th>Date</th>
             <th className="num">Odometer</th>
+            <th className="num" title="Distance since the trip meter was last reset. Not used as mileage.">Trip meter</th>
             <th>Status</th>
             <th><span className="sr-only">Actions</span></th>
           </tr>
@@ -46,7 +47,10 @@ export function OdometerTable(props: Props) {
                 {r.capturedAt ? <span>{r.capturedAt.slice(0, 10)}{r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : null}</span> : <span className="muted">–</span>}
               </td>
               <td data-label="Odometer" className="num">
-                <OdometerCell record={r} onChange={(v) => props.onEdit(r.id, v)} />
+                <OdometerCell record={r} field="odometer" onChange={(v) => props.onEdit(r.id, 'odometer', v)} />
+              </td>
+              <td data-label="Trip meter" className="num">
+                <OdometerCell record={r} field="trip" onChange={(v) => props.onEdit(r.id, 'trip', v)} />
               </td>
               <td data-label="Status">
                 <span className={`badge badge--${r.status}`}>{STATUS_LABEL[r.status]}</span>
@@ -69,11 +73,12 @@ export function OdometerTable(props: Props) {
   );
 }
 
-function OdometerCell({ record, onChange }: { record: FuelRecord; onChange: (v: number | null) => void }) {
-  const f = record.odometer;
+function OdometerCell({ record, field, onChange }: { record: FuelRecord; field: 'odometer' | 'trip'; onChange: (v: number | null) => void }) {
+  const decimals = field === 'trip' ? 1 : 0;
+  const f = record[field];
   const eff = effectiveValue(f);
   const source = valueSource(f);
-  const shown = formatFixed(eff, 0);
+  const shown = formatFixed(eff, decimals);
   const [draft, setDraft] = useState(shown);
   const [invalid, setInvalid] = useState(false);
   useEffect(() => { setDraft(shown); setInvalid(false); }, [shown]);
@@ -82,9 +87,9 @@ function OdometerCell({ record, onChange }: { record: FuelRecord; onChange: (v: 
   const commit = () => {
     if (draft.trim() === '') { setInvalid(false); if (f.corrected !== null) onChange(null); else setDraft(shown); return; }
     const n = parseNumber(draft.replace(/[\s,]/g, ''));
-    if (n === null || !Number.isInteger(n)) { setInvalid(true); return; }
+    if (n === null || (decimals === 0 && !Number.isInteger(n)) || Math.round(n * 10 ** decimals) / 10 ** decimals !== n) { setInvalid(true); return; }
     setInvalid(false);
-    if (formatFixed(n, 0) !== shown) onChange(n); else setDraft(shown);
+    if (formatFixed(n, decimals) !== shown) onChange(n); else setDraft(shown);
   };
 
   const info = f.detected !== null ? `Detected: ${f.detectedText} (confidence ${Math.round(f.confidence * 100)}%)` : 'Not detected';
@@ -92,8 +97,8 @@ function OdometerCell({ record, onChange }: { record: FuelRecord; onChange: (v: 
     <div className={`field field--${source}${invalid ? ' field--invalid' : ''}`} title={source === 'user' ? `Edited. ${info}` : info}>
       {source === 'detected' ? <span className={`dot dot--${level}`} aria-hidden="true" /> : null}
       <input
-        inputMode="numeric"
-        aria-label={`Odometer for ${record.fileName}`}
+        inputMode={decimals ? 'decimal' : 'numeric'}
+        aria-label={`${field === 'trip' ? 'Trip meter' : 'Odometer'} for ${record.fileName}`}
         aria-invalid={invalid}
         value={draft}
         placeholder="—"
@@ -102,7 +107,7 @@ function OdometerCell({ record, onChange }: { record: FuelRecord; onChange: (v: 
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
       />
-      {record.odometerUnit ? <span className="muted">{record.odometerUnit}</span> : null}
+      {record.odometerUnit && f.detected !== null ? <span className="muted">{record.odometerUnit}</span> : null}
       {source === 'user' ? <span className="tag tag--user">edited</span> : null}
       {source === 'detected' && level !== 'high' ? <span className="tag tag--warn">check</span> : null}
     </div>

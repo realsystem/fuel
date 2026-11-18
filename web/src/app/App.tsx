@@ -219,12 +219,12 @@ export function App() {
       {odometerResults.length ? (
         <section className="card" aria-labelledby="odo-h">
           <h2 id="odo-h">Odometer photos ({odometerResults.length})</h2>
-          <p className="muted small">Read from the dashboard. The mileage is accepted only next to an “ODO” label or a mi/km unit; anything less certain is marked for you to check.</p>
+          <p className="muted small">Read from the dashboard. The odometer (total mileage) is told apart from the trip meter (a smaller distance since the last reset). Mileage is accepted only next to an “ODO” label or a mi/km unit; anything less certain is marked for you to check.</p>
           <OdometerTable
             records={odometerResults}
             urls={urls}
             busy={busy}
-            onEdit={(id, v) => update(id, (r) => correctField(r, 'odometer', v))}
+            onEdit={(id, field, v) => update(id, (r) => correctField(r, field, v))}
             onConfirm={(id, c) => update(id, (r) => (c ? confirmRecord(r) : unconfirmRecord(r)))}
             onReprocess={reprocess}
             onRemove={remove}

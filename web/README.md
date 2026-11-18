@@ -15,6 +15,8 @@ export a CSV.
   the odometer photo taken nearest to it (by photo time), giving distance,
   efficiency and cost per mile between fill-ups. Impossible-looking trips are
   flagged and left out of the averages.
+- **Odometer or trip meter.** A dashboard's total mileage and its trip meter
+  (smaller number, with a decimal) are read separately and never mixed up.
 - **Small.** About 330 KB of JavaScript, mostly React. No OpenCV or Tesseract
   download, and it works offline once loaded.
 - **Honest.** Uncertain readings are flagged for review instead of being passed
