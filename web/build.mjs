@@ -23,7 +23,10 @@ const options = {
   minify: !serve,
   sourcemap: serve ? 'inline' : false,
   jsx: 'automatic',
-  define: { 'process.env.NODE_ENV': JSON.stringify(serve ? 'development' : 'production') },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(serve ? 'development' : 'production'),
+    'process.env.SUPPORT_URL': JSON.stringify(process.env.SUPPORT_URL ?? ''),
+  },
   logLevel: 'info',
 };
 

@@ -13,6 +13,7 @@ import {
 } from '../services/RecordService.ts';
 import { computeStatistics } from '../services/StatisticsService.ts';
 import { csvFileName, recordsToCsv } from '../services/ExportService.ts';
+import { captureTimeOf } from '../services/CaptureTimeService.ts';
 import { formatBytes, validateImageFile } from '../utils/imageValidation.ts';
 
 let idCounter = 0;
@@ -63,6 +64,11 @@ export function App() {
     setRejected(errors);
     setUrls(nextUrls);
     setRecords((rs) => [...rs, ...added]);
+    // The capture date is read in the background; it never delays processing.
+    for (const r of added) {
+      const f = files.current.get(r.id);
+      if (f) void captureTimeOf(f).then((c) => c && update(r.id, (x) => ({ ...x, capturedAt: c.at, capturedSource: c.source })));
+    }
   };
 
   const remove = (id: string) => {

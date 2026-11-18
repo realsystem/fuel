@@ -11,6 +11,7 @@ import { ERROR_MESSAGES } from '../models/ProcessingError.ts';
 export function newRecord(id: string, fileName: string, fileSize: number): FuelRecord {
   return {
     id, fileName, fileSize,
+    capturedAt: null, capturedSource: null,
     status: 'queued',
     amount: emptyField(), volume: emptyField(), unitPrice: emptyField(),
     result: null, note: null, processedAt: null,
