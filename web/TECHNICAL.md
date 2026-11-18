@@ -299,6 +299,19 @@ Thresholds are in `TRIP_CONFIG`. Trips can be exported as a separate CSV.
 Tested with synthetic records (`test/trips.test.ts`); checked in the browser
 with EXIF-timed photos.
 
+### Mileage statistics from odometer photos alone
+
+`src/services/OdometerStatsService.ts` needs no fill-ups. Readings (confirmed
+or detected, never Review) are ordered by EXIF photo time, then the longest run
+that never goes down is kept; a reading outside it (a misread digit, either
+end) is listed as "left out" instead of distorting the distance. From the kept
+readings: distance, time covered, per day / month / year (the yearly figure is
+the average rate over the period, projected, and is rough for short periods),
+and the average time between readings. Rates need two readings on different
+days; readings with only a file date are counted but not used. Pump statistics
+are shown only when there are pump photos, so an odometer-only folder no longer
+shows a page of zeros.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the

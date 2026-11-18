@@ -5,6 +5,8 @@ import { ImagePreviewGrid, ImageViewer } from './components/ImagePreview.tsx';
 import { ProcessingStatus, type RunState } from './components/ProcessingStatus.tsx';
 import { ResultsTable } from './components/ResultsTable.tsx';
 import { OdometerTable } from './components/OdometerTable.tsx';
+import { OdometerStatsPanel } from './components/OdometerStatsPanel.tsx';
+import { computeOdometerStats } from '../services/OdometerStatsService.ts';
 import { FuelEconomyPanel } from './components/FuelEconomyPanel.tsx';
 import { computeTrips, tripsToCsv } from '../services/TripService.ts';
 import { StatisticsPanel } from './components/StatisticsPanel.tsx';
@@ -157,6 +159,7 @@ export function App() {
   const unrecognised = results.filter((r) => r.kind === 'unrecognized');
   const stats = useMemo(() => computeStatistics(records), [records]);
   const trips = useMemo(() => computeTrips(records), [records]);
+  const odoStats = useMemo(() => computeOdometerStats(records), [records]);
   const detectedCount = records.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
@@ -259,10 +262,17 @@ export function App() {
         </section>
       ) : null}
 
-      {results.length ? (
+      {pumpResults.length ? (
         <section className="card" aria-labelledby="stats-h">
           <h2 id="stats-h">Statistics</h2>
           <StatisticsPanel stats={stats} onExport={exportCsv} canExport={results.some((r) => r.result)} />
+        </section>
+      ) : null}
+
+      {odometerResults.length ? (
+        <section className="card" aria-labelledby="odo-stats-h">
+          <h2 id="odo-stats-h">Mileage statistics</h2>
+          <OdometerStatsPanel stats={odoStats} onExport={pumpResults.length ? undefined : exportCsv} />
         </section>
       ) : null}
 
