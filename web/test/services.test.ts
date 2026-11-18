@@ -146,8 +146,8 @@ test('CSV carries the capture time and where it came from', () => {
 test('support link accepts only plain https URLs', async () => {
   const { safeSupportUrl } = await import('../src/utils/supportUrl.ts');
   assert.equal(safeSupportUrl('https://buymeacoffee.com/someone'), 'https://buymeacoffee.com/someone');
-  assert.equal(safeSupportUrl('buymeacoffee.com/realsystem'), 'https://buymeacoffee.com/realsystem');
-  assert.equal(safeSupportUrl('  https://buymeacoffee.com/realsystem  '), 'https://buymeacoffee.com/realsystem');
+  assert.equal(safeSupportUrl('buymeacoffee.com/example'), 'https://buymeacoffee.com/example');
+  assert.equal(safeSupportUrl('  https://buymeacoffee.com/example  '), 'https://buymeacoffee.com/example');
   for (const bad of ['', undefined, 'javascript:alert(1)', 'http://example.com', 'data:text/html,x', 'https://localhost', 'not a url']) {
     assert.equal(safeSupportUrl(bad), null, String(bad));
   }
