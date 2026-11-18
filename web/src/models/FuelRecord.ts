@@ -31,6 +31,10 @@ export interface FuelRecord {
   id: string;
   fileName: string;
   fileSize: number;
+  /** When the photo was taken, "YYYY-MM-DDTHH:MM:SS±HH:MM" (local time of the camera). */
+  capturedAt: string | null;
+  /** 'exif' = from the photo's metadata; 'file' = the file's modified date (less reliable). */
+  capturedSource: 'exif' | 'file' | null;
   status: RecordStatus;
   amount: FieldValue;
   volume: FieldValue;

@@ -118,6 +118,20 @@ need the fallback methods take up to about 1.2 s.
 The unit tests also render synthetic displays with numbers not in the photo
 set (upright, italic, different backlight colours).
 
+**Tried and rejected: black top-hat filtering.** A top-hat filter (grey close
+minus image) isolates thin dark strokes regardless of local brightness, so it
+looks like the right tool for reflections, and on the hardest photo
+(`PXL_20261117_184636300.jpg`, 116.07 / 22.070, a hand and phone reflected over
+the display) it shows the bottom line clearly. Added as a fourth fallback
+threshold it did not fix that photo, because the reflection debris still fills
+the gap between the two text lines, so they merge into one band; even forcing a
+split did not give readable digits, since the leading digits are mostly hidden.
+It also corroborated a wrong reading on a re-encoded copy of a photo that reads
+correctly today (4.02 read as 4.00, accepted without a flag): wrong silent
+readings in the robustness run went from 1 to 4. It was removed. A future
+attempt needs line detection that is robust to debris (for example from
+horizontal-bar positions) before a new threshold can help.
+
 **The best next step for accuracy is taking photos without reflections.** A
 slight angle so you are not reflected in the screen, and shade from the sky,
 remove most of the failures above.
@@ -155,6 +169,32 @@ Not built yet, by design: backend, storage, accounts, persistence.
   consumption (MPG, L/100 km) can be added there once odometer readings exist.
 - Processing parameters are in `src/processor/config.ts` and app limits are in
   `src/app/appConfig.ts`.
+
+## 5a. Photo metadata (EXIF)
+
+Surveyed on the 52 sample photos: 42 phone photos carry full EXIF; 10 carry
+none (the 8 web images, one chat-app copy, and a photo whose metadata was
+stripped when it was sent). Each full block holds camera and lens, exposure
+(shutter, ISO, aperture, flash), focus distance, orientation, capture time
+with UTC offset, and **GPS location**.
+
+What the app uses, and why:
+
+- **Capture time only** (`src/utils/exif.ts`). It becomes the record's date
+  (`captured_at`, with `captured_source` = `exif` or `file` in the CSV). EXIF
+  time is local with the camera's UTC offset; Pixel file names are UTC, so
+  parsing the name would put an evening fill-up on the next day
+  (`PXL_20251206_033907` was taken at 19:39 on 5 December, UTC-8). Photos
+  without EXIF fall back to the file's modified date, shown as "(file date)"
+  because it may be the day the file was copied.
+- **Never read:** the GPS section and every other tag. The reader walks only
+  to the timestamp and offset. Nothing about location or device is stored or
+  exported, and the CSV contains no metadata beyond the date.
+- Verified against Pillow on all 52 files: 42 read, 10 none, 0 mismatches.
+
+Not built, but possible: warn when the flash fired (glare risk), use focus
+distance to reject far-away shots, or offer station location as an explicit
+opt-in. Each adds metadata handling that has not been needed yet.
 
 ## 6. Known limitations
 

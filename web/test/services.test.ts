@@ -127,8 +127,8 @@ test('CSV has a header, fixed decimals and correction flag', () => {
   const recs = [confirmRecord(record('a', 40, 10)), correctField(record('b', 20, 4.348), 'amount', 20.5)];
   const lines = recordsToCsv(recs).trimEnd().split('\r\n');
   assert.equal(lines[0], CSV_COLUMNS.join(','));
-  assert.equal(lines[1], 'a.jpg,10.000,40.00,4.000,derived,ok,confirmed,no,2026-10-30T00:00:00.000Z');
-  assert.match(lines[2], /^b\.jpg,4\.348,20\.50,4\.715,derived,ok,detected,yes,/);
+  assert.equal(lines[1], 'a.jpg,,,10.000,40.00,4.000,derived,ok,confirmed,no,2026-10-30T00:00:00.000Z');
+  assert.match(lines[2], /^b\.jpg,,,4\.348,20\.50,4\.715,derived,ok,detected,yes,/);
 });
 
 test('CSV cells are quoted and protected against formula injection', () => {
@@ -136,4 +136,9 @@ test('CSV cells are quoted and protected against formula injection', () => {
   assert.equal(csvCell('say "hi"'), '"say ""hi"""');
   assert.equal(csvCell('=HYPERLINK("x")'), '"\'=HYPERLINK(""x"")"');
   assert.equal(csvCell('+1'), "'+1");
+});
+
+test('CSV carries the capture time and where it came from', () => {
+  const r = { ...record('c', 40, 10), capturedAt: '2025-12-05T19:39:07-08:00', capturedSource: 'exif' as const };
+  assert.match(recordsToCsv([r]).split('\r\n')[1], /^c\.jpg,2025-12-05T19:39:07-08:00,exif,10\.000,/);
 });

@@ -7,6 +7,8 @@ import { FIELD_DECIMALS, formatFixed } from '../utils/numberFormatting.ts';
 
 export const CSV_COLUMNS = [
   'file_name',
+  'captured_at',
+  'captured_source',
   'fuel_volume',
   'amount',
   'unit_price',
@@ -29,6 +31,8 @@ export function recordsToCsv(records: FuelRecord[]): string {
   for (const r of records) {
     rows.push([
       r.fileName,
+      r.capturedAt ?? '',
+      r.capturedSource ?? '',
       formatFixed(effectiveValue(r.volume), FIELD_DECIMALS.volume),
       formatFixed(effectiveValue(r.amount), FIELD_DECIMALS.amount),
       formatFixed(effectiveValue(r.unitPrice), FIELD_DECIMALS.unitPrice),

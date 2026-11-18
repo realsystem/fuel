@@ -69,7 +69,9 @@ expected values to that file, and run `npm run accuracy`.
    - Click a photo to see the original with the detected numbers outlined.
 4. Click **Confirm** on each correct row, or **Confirm N detected** to confirm
    all of them. Only confirmed rows count in the final statistics.
-5. Click **Export CSV**.
+5. Click **Export CSV**. The date of each fill-up comes from the photo's own
+   timestamp (`captured_at`), read locally; location data in the photo is never
+   read. Photos without a timestamp use the file's date, marked `file`.
 
 Nothing is stored. Reloading the page clears everything.
 

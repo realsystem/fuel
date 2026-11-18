@@ -39,6 +39,7 @@ export function ResultsTable(props: Props) {
         <thead>
           <tr>
             <th>Image</th>
+            <th>Date</th>
             {COLUMNS.map((c) => <th key={c.field} className="num">{c.label}</th>)}
             <th>Status</th>
             <th><span className="sr-only">Actions</span></th>
@@ -52,6 +53,14 @@ export function ResultsTable(props: Props) {
                   <img src={urls.get(r.id)} alt="" loading="lazy" />
                   <span className="img-cell__name">{r.fileName}</span>
                 </button>
+              </td>
+              <td data-label="Date">
+                {r.capturedAt ? (
+                  <span title={r.capturedSource === 'exif' ? `Taken ${r.capturedAt.replace('T', ' ')}` : 'From the file date (no camera timestamp found); may be when it was saved, not taken'}>
+                    {r.capturedAt.slice(0, 10)}
+                    {r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : null}
+                  </span>
+                ) : <span className="muted">–</span>}
               </td>
               {COLUMNS.map((c) => (
                 <td key={c.field} data-label={c.label} className="num">
