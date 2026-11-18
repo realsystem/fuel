@@ -98,3 +98,31 @@ test('mixed units are flagged; CSV neutralises formulas and lists status', () =>
   assert.match(csv[0], /^from_date,to_date,/);
   assert.match(csv[1], /,check,units_differ,/);
 });
+
+test('partial fills are rolled into the next full fill-up', () => {
+  const part = pump(T('10-10'), 5, 17);
+  part.fullTank = false;
+  const s = computeTrips([
+    pump(T('10-01'), 12, 40), odo(T('10-01', '10:05:00'), 10000),
+    part, odo(T('10-10', '10:02:00'), 10150),
+    pump(T('10-20'), 5, 18), odo(T('10-20', '10:02:00'), 10300),
+  ]);
+  assert.equal(s.fillUps.length, 3);
+  assert.equal(s.trips.length, 1);
+  assert.equal(s.trips[0].distance, 300);
+  assert.equal(s.trips[0].volume, 10);
+  assert.equal(s.trips[0].amount, 35);
+  assert.ok(Math.abs(s.trips[0].efficiency! - 30) < 1e-9);
+  assert.deepEqual(s.rows.map((r) => r.role), ['first', 'partial', 'trip_end']);
+});
+
+test('rows list fill-ups, then pump and odometer photos that found no partner', () => {
+  const s = computeTrips([
+    pump(T('10-01'), 12, 40), odo(T('10-01', '10:05:00'), 10000),
+    pump(T('10-05'), 8, 30),
+    odo(T('10-09'), 10200),
+  ]);
+  assert.deepEqual(s.rows.map((r) => r.kind), ['fill_up', 'pump_only', 'odometer_only']);
+  assert.equal(s.rows[1].problem, 'no_odometer_nearby');
+  assert.equal(s.rows[2].problem, 'no_pump_nearby');
+});

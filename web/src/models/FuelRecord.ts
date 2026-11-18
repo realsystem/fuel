@@ -49,6 +49,10 @@ export interface FuelRecord {
   /** Trip meter reading (distance since the last reset); only used when kind is 'odometer'. Never used as a mileage. */
   trip: FieldValue;
   odometerUnit: 'mi' | 'km' | null;
+  /** True for a row loaded from a CSV exported earlier: it has no photo here. */
+  imported: boolean;
+  /** Pump records: the tank was filled to the same level as at the previous fill-up. Partial fills are rolled into the next full one. */
+  fullTank: boolean;
   result: ProcessingResult | null;
   /** Human-readable reason when status is 'review' or 'failed'. */
   note: string | null;

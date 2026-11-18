@@ -49,10 +49,14 @@ export function ResultsTable(props: Props) {
           {records.map((r) => (
             <tr key={r.id} className={`row row--${r.status}`}>
               <td data-label="Image">
-                <button type="button" className="img-cell" onClick={() => props.onView(r.id)} title="Inspect the original photo">
-                  <img src={urls.get(r.id)} alt="" loading="lazy" />
-                  <span className="img-cell__name">{r.fileName}</span>
-                </button>
+                {r.imported ? (
+                  <span className="img-cell img-cell--none"><span className="img-cell__name">{r.fileName}</span> <span className="tag">imported</span></span>
+                ) : (
+                  <button type="button" className="img-cell" onClick={() => props.onView(r.id)} title="Inspect the original photo">
+                    <img src={urls.get(r.id)} alt="" loading="lazy" />
+                    <span className="img-cell__name">{r.fileName}</span>
+                  </button>
+                )}
               </td>
               <td data-label="Date">
                 {r.capturedAt ? (
@@ -84,7 +88,7 @@ export function ResultsTable(props: Props) {
                   <button type="button" className="btn btn--small" disabled={!canConfirm(r) || r.status === 'processing'}
                     onClick={() => props.onConfirm(r.id, true)}>Confirm</button>
                 )}
-                <button type="button" className="btn btn--small btn--ghost" disabled={busy} onClick={() => props.onReprocess(r.id)}>Reprocess</button>
+                <button type="button" className="btn btn--small btn--ghost" disabled={busy || r.imported} onClick={() => props.onReprocess(r.id)}>Reprocess</button>
                 <button type="button" className="icon-btn" aria-label={`Remove ${r.fileName}`} disabled={r.status === 'processing'}
                   onClick={() => props.onRemove(r.id)}>×</button>
               </td>

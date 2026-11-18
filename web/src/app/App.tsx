@@ -18,6 +18,7 @@ import {
 } from '../services/RecordService.ts';
 import { computeStatistics } from '../services/StatisticsService.ts';
 import { csvFileName, recordsToCsv } from '../services/ExportService.ts';
+import { dedupeRecords, importCsv, IMPORT_LIMITS, recordKey as recordKeyOf } from '../services/ImportService.ts';
 import { captureTimeOf } from '../services/CaptureTimeService.ts';
 import { formatBytes, validateImageFile } from '../utils/imageValidation.ts';
 
@@ -29,12 +30,14 @@ export function App() {
   const [rejected, setRejected] = useState<string[]>([]);
   const [run, setRun] = useState<RunState | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
+  const [importNote, setImportNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Files and preview URLs live outside React state: they are large and never rendered directly.
   const files = useRef(new Map<string, File>());
   const [urls, setUrls] = useState(new Map<string, string>());
   const service = useRef<ImageProcessingService | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const importInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     service.current = new BrowserSegmentProcessor(new URL('worker.js', document.baseURI));
@@ -55,7 +58,7 @@ export function App() {
     const added: FuelRecord[] = [];
     const nextUrls = new Map(urls);
     for (const f of incoming) {
-      if (records.length + added.length >= APP_CONFIG.maxImages) {
+      if (files.current.size + added.length >= APP_CONFIG.maxImages) {
         errors.push(`Only ${APP_CONFIG.maxImages} images can be handled at once; ${f.name} was skipped.`);
         continue;
       }
@@ -74,6 +77,26 @@ export function App() {
       const f = files.current.get(r.id);
       if (f) void captureTimeOf(f).then((c) => c && update(r.id, (x) => ({ ...x, capturedAt: c.at, capturedSource: c.source })));
     }
+  };
+
+  /** Import a CSV exported earlier. Nothing is saved by this tool: the file is the history. */
+  const toggleFull = (id: string) =>
+    setRecords((rs) => rs.map((r) => (r.id === id ? { ...r, fullTank: !r.fullTank } : r)));
+
+  const importFile = async (file: File) => {
+    setImportNote(null);
+    if (file.size > IMPORT_LIMITS.maxBytes) { setImportNote({ ok: false, text: 'That file is too large to be one of this tool\u2019s exports.' }); return; }
+    const text = await file.text();
+    const res = importCsv(text, newId);
+    if (res.error) { setImportNote({ ok: false, text: res.error }); return; }
+    const have = new Set(dedupeRecords(records).map((r) => recordKeyOf(r)));
+    const fresh = res.records.filter((r) => { const k = recordKeyOf(r); if (have.has(k)) return false; have.add(k); return true; });
+    const dup = res.records.length - fresh.length;
+    setRecords((rs) => [...rs, ...fresh]);
+    const parts = [`Imported ${fresh.length} row${fresh.length === 1 ? '' : 's'}`];
+    if (dup) parts.push(`${dup} already present`);
+    if (res.skipped.length) parts.push(`${res.skipped.length} skipped (${res.skipped.slice(0, 3).map((s) => `line ${s.line}: ${s.reason}`).join('; ')}${res.skipped.length > 3 ? '; …' : ''})`);
+    setImportNote({ ok: fresh.length > 0 || dup > 0, text: parts.join(', ') + '.' });
   };
 
   const remove = (id: string) => {
@@ -134,7 +157,7 @@ export function App() {
   const confirmAllDetected = () => setRecords((rs) => rs.map((r) => (r.status === 'detected' && r.kind !== 'odometer' ? confirmRecord(r) : r)));
 
   const exportCsv = () => {
-    const blob = new Blob([recordsToCsv(records.filter((r) => r.result || r.status === 'confirmed'))], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([recordsToCsv(records.filter((r) => r.result || r.imported || r.status === 'confirmed'))], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = csvFileName();
@@ -152,15 +175,18 @@ export function App() {
   };
 
   const queued = records.filter((r) => r.status === 'queued');
-  const results = records.filter((r) => r.status !== 'queued' || r.result);
+  // A photo whose reading is already in the imported history is not counted twice.
+  const visible = useMemo(() => dedupeRecords(records), [records]);
+  const hiddenDuplicates = records.length - visible.length;
+  const results = visible.filter((r) => r.status !== 'queued' || r.result || r.imported);
   // Mixed uploads are separated automatically from what each photo was recognised as.
   const pumpResults = results.filter((r) => r.kind !== 'odometer' && r.kind !== 'unrecognized');
   const odometerResults = results.filter((r) => r.kind === 'odometer');
   const unrecognised = results.filter((r) => r.kind === 'unrecognized');
-  const stats = useMemo(() => computeStatistics(records), [records]);
-  const trips = useMemo(() => computeTrips(records), [records]);
-  const odoStats = useMemo(() => computeOdometerStats(records), [records]);
-  const detectedCount = records.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
+  const stats = useMemo(() => computeStatistics(visible), [visible]);
+  const trips = useMemo(() => computeTrips(visible), [visible]);
+  const odoStats = useMemo(() => computeOdometerStats(visible), [visible]);
+  const detectedCount = visible.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
 
@@ -191,6 +217,19 @@ export function App() {
           {records.length ? <button type="button" className="btn btn--ghost" disabled={busy} onClick={clearAll}>Clear all</button> : null}
         </div>
         {run ? <ProcessingStatus run={run} onCancel={() => abort.current?.abort()} /> : null}
+        <div className="import">
+          <input
+            ref={importInput}
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void importFile(f); }}
+          />
+          <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => importInput.current?.click()}>Import earlier data (CSV)</button>
+          <span className="muted small">This page saves nothing. When you are done, export your data and keep the file; import it here next time to continue from where you stopped.</span>
+        </div>
+        {importNote ? <p className={importNote.ok ? 'muted small' : 'errors'} role={importNote.ok ? 'status' : 'alert'}>{importNote.text}</p> : null}
+        {hiddenDuplicates ? <p className="muted small">{hiddenDuplicates} reading{hiddenDuplicates === 1 ? '' : 's'} already in your imported data {hiddenDuplicates === 1 ? 'is' : 'are'} hidden and not counted twice.</p> : null}
       </section>
 
       {pumpResults.length ? (
@@ -239,7 +278,7 @@ export function App() {
       {pumpResults.length && odometerResults.length ? (
         <section className="card" aria-labelledby="eco-h">
           <h2 id="eco-h">Fuel economy</h2>
-          <FuelEconomyPanel summary={trips} onExport={exportTrips} />
+          <FuelEconomyPanel summary={trips} onExport={exportTrips} onToggleFull={toggleFull} />
         </section>
       ) : null}
 
@@ -265,7 +304,7 @@ export function App() {
       {pumpResults.length ? (
         <section className="card" aria-labelledby="stats-h">
           <h2 id="stats-h">Statistics</h2>
-          <StatisticsPanel stats={stats} onExport={exportCsv} canExport={results.some((r) => r.result)} />
+          <StatisticsPanel stats={stats} onExport={exportCsv} canExport={results.some((r) => r.result || r.imported)} />
         </section>
       ) : null}
 

@@ -15,7 +15,7 @@ export function newRecord(id: string, fileName: string, fileSize: number): FuelR
     kind: null,
     status: 'queued',
     amount: emptyField(), volume: emptyField(), unitPrice: emptyField(),
-    odometer: emptyField(), trip: emptyField(), odometerUnit: null,
+    odometer: emptyField(), trip: emptyField(), odometerUnit: null, imported: false, fullTank: true,
     result: null, note: null, processedAt: null,
   };
 }

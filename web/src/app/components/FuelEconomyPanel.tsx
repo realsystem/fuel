@@ -3,12 +3,13 @@ import { ISSUE_TEXT, type TripSummary } from '../../services/TripService.ts';
 interface Props {
   summary: TripSummary;
   onExport: () => void;
+  onToggleFull: (pumpRecordId: string) => void;
 }
 
 const fmt = (v: number | null, d: number) => (v === null ? '–' : v.toFixed(d));
 
 /** Miles (or km) per fuel unit, cost per distance, and the fill-up to fill-up trips behind them. */
-export function FuelEconomyPanel({ summary, onExport }: Props) {
+export function FuelEconomyPanel({ summary, onExport, onToggleFull }: Props) {
   const { totals, trips } = summary;
   const unit = trips.find((t) => t.unit)?.unit ?? 'mi';
   const effLabel = unit === 'km' ? 'km per fuel unit' : 'mpg';
@@ -22,9 +23,58 @@ export function FuelEconomyPanel({ summary, onExport }: Props) {
       </dl>
       <p className="muted small">
         {totals.trips} of {trips.length} trip{trips.length === 1 ? '' : 's'} used. Trips marked “check” are left out of these figures.
-        Efficiency is the distance since the previous fill-up divided by the fuel bought at this one, so it assumes you filled up to the same level each time.
+        Efficiency is the distance between two full fill-ups divided by all the fuel bought since the first of them.
         {unit === 'mi' ? ' The figure is mpg if the pump shows gallons.' : ''}
       </p>
+
+      {summary.rows.length ? (
+        <>
+          <h3>Fill-ups</h3>
+          <div className="table-wrap">
+            <table className="results">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th className="num">Odometer</th>
+                  <th className="num">Fuel</th>
+                  <th className="num">Amount</th>
+                  <th className="num">Price / unit</th>
+                  <th>Full tank</th>
+                  <th className="num">{effLabel}</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.rows.map((r) => (
+                  <tr key={r.kind + r.recordId} className={r.kind === 'fill_up' ? 'row' : 'row row--review'}>
+                    <td data-label="Date">{r.date ?? '–'}</td>
+                    <td data-label="Odometer" className="num">{r.odometer ?? '–'}</td>
+                    <td data-label="Fuel" className="num">{fmt(r.volume, 3)}</td>
+                    <td data-label="Amount" className="num">{fmt(r.amount, 2)}</td>
+                    <td data-label="Price" className="num">{fmt(r.unitPrice, 3)}</td>
+                    <td data-label="Full tank">
+                      {r.fullTank === null ? '–' : (
+                        <input type="checkbox" checked={r.fullTank} onChange={() => onToggleFull(r.recordId)} aria-label={`Full tank: ${r.fileName}`} />
+                      )}
+                    </td>
+                    <td data-label={effLabel} className="num">{fmt(r.trip?.efficiency ?? null, 1)}</td>
+                    <td data-label="Status">
+                      {r.kind === 'pump_only' ? <span className="badge badge--review">{r.problem === 'no_capture_time' ? 'No photo time' : 'No odometer photo'}</span>
+                        : r.kind === 'odometer_only' ? <span className="badge badge--review">{r.problem === 'no_capture_time' ? 'No photo time' : 'No pump photo'}</span>
+                        : r.role === 'first' ? <span className="muted small">Start point</span>
+                        : r.role === 'partial' ? <span className="muted small">Partial: counted in next full</span>
+                        : r.role === 'pending' ? <span className="muted small">Waiting for a full fill-up</span>
+                        : <span className="muted small">Trip end</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted small">Untick “Full tank” for a partial fill; its fuel is added to the next full fill-up.</p>
+          <h3>Trips</h3>
+        </>
+      ) : null}
 
       {trips.length ? (
         <div className="table-wrap">

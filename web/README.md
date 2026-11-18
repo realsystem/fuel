@@ -92,7 +92,8 @@ published. Never commit photos without removing their location data first.
    - Click a photo to see the original with the detected numbers outlined.
 4. Click **Confirm** on each correct row, or **Confirm N detected** to confirm
    all of them. Only confirmed rows count in the final statistics.
-5. Click **Export CSV**. The date of each fill-up comes from the photo's own
+5. Click **Export CSV** and keep the file: this page saves nothing, the CSV is your history. Next time, use **Import earlier data (CSV)** to carry on where you stopped.
+    The date of each fill-up comes from the photo's own
    timestamp (`captured_at`), read locally; location data in the photo is never
    read. Photos without a timestamp use the file's date, marked `file`.
 

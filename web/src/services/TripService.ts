@@ -49,6 +49,8 @@ export interface FillUp {
   unit: 'mi' | 'km' | null;
   /** Minutes between the pump photo and the odometer photo. */
   pairGapMinutes: number;
+  /** The tank was filled to the same level as before. Partial fills are rolled into the next full one. */
+  fullTank: boolean;
   /** True when any record behind this fill-up is not confirmed yet. */
   provisional: boolean;
 }
@@ -63,8 +65,10 @@ export type TripIssue =
 export interface Trip {
   from: FillUp;
   to: FillUp;
+  /** Fill-ups after `from`, up to and including `to` (partial fills first). All their fuel is counted. */
+  fills: FillUp[];
   distance: number;
-  /** Fuel bought at the end of the trip (full-to-full method). */
+  /** Fuel bought since `from` (full-to-full method: every fill after the previous full one). */
   volume: number;
   amount: number;
   days: number;
@@ -75,8 +79,32 @@ export interface Trip {
   provisional: boolean;
 }
 
+/** One line per fill-up photo pair, plus pump photos and odometer photos that found no partner. */
+export interface FillUpRow {
+  kind: 'fill_up' | 'pump_only' | 'odometer_only';
+  recordId: string;
+  odometerRecordId: string | null;
+  fileName: string;
+  date: string | null;
+  time: number | null;
+  odometer: number | null;
+  volume: number | null;
+  amount: number | null;
+  unitPrice: number | null;
+  fullTank: boolean | null;
+  fillUp: FillUp | null;
+  /** The trip that ended at this fill-up. */
+  trip: Trip | null;
+  /** 'first' = start point; 'partial' = rolled into the next full fill-up; 'pending' = after the last full one. */
+  role: 'first' | 'trip_end' | 'partial' | 'pending' | null;
+  /** Why this row is not paired, for pump_only / odometer_only rows. */
+  problem: 'no_odometer_nearby' | 'no_capture_time' | 'no_pump_nearby' | null;
+}
+
 export interface TripSummary {
   fillUps: FillUp[];
+  /** Rows for a table: every fill-up in time order, then the unpaired photos. */
+  rows: FillUpRow[];
   trips: Trip[];
   /** Pump photos that have a volume and amount but no odometer photo close enough in time. */
   unpairedFillUps: Array<{ recordId: string; fileName: string; reason: 'no_capture_time' | 'no_odometer_nearby' }>;
@@ -148,27 +176,40 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
       time: p.t!, date: new Date(p.t!).toISOString().slice(0, 10),
       volume: p.volume, amount: p.amount, odometer: o.value, unit: o.r.odometerUnit,
       pairGapMinutes: Math.round(c.gap / 60_000),
+      fullTank: p.r.fullTank,
       provisional: p.r.status !== 'confirmed' || o.r.status !== 'confirmed',
     });
   }
   fillUps.sort((a, b) => a.time - b.time);
 
+  // Full-to-full: a trip runs from one full fill-up to the next. Partial fills in between add their
+  // fuel to the trip but are not endpoints.
   const trips: Trip[] = [];
-  for (let i = 1; i < fillUps.length; i++) {
-    const from = fillUps[i - 1], to = fillUps[i];
+  let anchor: FillUp | null = null;
+  let between: FillUp[] = [];
+  for (const f of fillUps) {
+    if (!anchor) { if (f.fullTank) anchor = f; continue; }
+    between.push(f);
+    if (!f.fullTank) continue;
+    const from = anchor, to = f;
     const issues: TripIssue[] = [];
     const distance = to.odometer - from.odometer;
     if (from.unit && to.unit && from.unit !== to.unit) issues.push('units_differ');
     if (distance <= 0) issues.push('odometer_not_increasing');
     if (distance > cfg.maxDistance) issues.push('distance_very_large');
-    const efficiency = distance > 0 ? distance / to.volume : null;
+    const volume = between.reduce((s2, x) => s2 + x.volume, 0);
+    const amount = between.reduce((s2, x) => s2 + x.amount, 0);
+    const efficiency = distance > 0 ? distance / volume : null;
     if (efficiency !== null && (efficiency < cfg.minEfficiency || efficiency > cfg.maxEfficiency)) issues.push('efficiency_implausible');
-    const costPerDistance = distance > 0 ? to.amount / distance : null;
+    const costPerDistance = distance > 0 ? amount / distance : null;
     if (costPerDistance !== null && costPerDistance > cfg.maxCostPerDistance) issues.push('cost_implausible');
     trips.push({
-      from, to, distance, volume: to.volume, amount: to.amount, days: (to.time - from.time) / 86_400_000,
-      efficiency, costPerDistance, unit: to.unit ?? from.unit, issues, provisional: from.provisional || to.provisional,
+      from, to, fills: between, distance, volume, amount, days: (to.time - from.time) / 86_400_000,
+      efficiency, costPerDistance, unit: to.unit ?? from.unit, issues,
+      provisional: from.provisional || between.some((x) => x.provisional),
     });
+    anchor = to;
+    between = [];
   }
 
   const good = trips.filter((t) => t.issues.length === 0);
@@ -179,8 +220,46 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
 
   const pumpIds = new Set(pumps.filter((_, i) => pumpUsed.has(i)).map((p) => p.r.id));
   const odoIds = new Set(odos.filter((_, i) => odoUsed.has(i)).map((o) => o.r.id));
+  // Rows for the table.
+  const tripEndingAt = new Map(trips.map((t) => [t.to.recordId, t]));
+  const firstFull = fillUps.find((f) => f.fullTank) ?? null;
+  const lastFull = [...fillUps].reverse().find((f) => f.fullTank) ?? null;
+  const rows: FillUpRow[] = fillUps.map((f) => {
+    const pr = records.find((r) => r.id === f.recordId);
+    const up = pr ? effectiveValue(pr.unitPrice) : null;
+    const role: FillUpRow['role'] = f === firstFull ? 'first'
+      : tripEndingAt.has(f.recordId) ? 'trip_end'
+      : lastFull && f.time > lastFull.time ? 'pending'
+      : !firstFull || f.time < firstFull.time ? 'pending' : 'partial';
+    return {
+      kind: 'fill_up', recordId: f.recordId, odometerRecordId: f.odometerRecordId, fileName: f.fileName,
+      date: f.date, time: f.time, odometer: f.odometer, volume: f.volume, amount: f.amount,
+      unitPrice: up ?? (f.volume > 0 ? f.amount / f.volume : null), fullTank: f.fullTank, fillUp: f,
+      trip: tripEndingAt.get(f.recordId) ?? null, role, problem: null,
+    };
+  });
+  for (const p of pumps) {
+    if (pumpIds.has(p.r.id)) continue;
+    const up = effectiveValue(p.r.unitPrice);
+    rows.push({
+      kind: 'pump_only', recordId: p.r.id, odometerRecordId: null, fileName: p.r.fileName,
+      date: p.t === null ? null : new Date(p.t).toISOString().slice(0, 10), time: p.t, odometer: null,
+      volume: p.volume, amount: p.amount, unitPrice: up ?? p.amount / p.volume, fullTank: p.r.fullTank,
+      fillUp: null, trip: null, role: null, problem: p.t === null ? 'no_capture_time' : 'no_odometer_nearby',
+    });
+  }
+  for (const o of odos) {
+    if (odoIds.has(o.r.id)) continue;
+    rows.push({
+      kind: 'odometer_only', recordId: o.r.id, odometerRecordId: o.r.id, fileName: o.r.fileName,
+      date: o.t === null ? null : new Date(o.t).toISOString().slice(0, 10), time: o.t, odometer: o.value,
+      volume: null, amount: null, unitPrice: null, fullTank: null, fillUp: null, trip: null, role: null,
+      problem: o.t === null ? 'no_capture_time' : 'no_pump_nearby',
+    });
+  }
   return {
     fillUps,
+    rows,
     trips,
     unpairedFillUps: pumps.filter((p) => !pumpIds.has(p.r.id)).map((p) => ({
       recordId: p.r.id, fileName: p.r.fileName, reason: p.t === null ? 'no_capture_time' as const : 'no_odometer_nearby' as const,
