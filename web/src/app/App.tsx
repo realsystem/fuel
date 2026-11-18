@@ -208,7 +208,7 @@ export function App() {
       <footer className="support">
         <p>If this tool was useful, consider supporting it.</p>
         {APP_CONFIG.supportUrl ? (
-          <a className="btn" href={APP_CONFIG.supportUrl} target="_blank" rel="noopener noreferrer">Support this tool</a>
+          <a className="btn btn--primary btn--link" href={APP_CONFIG.supportUrl} target="_blank" rel="noopener noreferrer">Support this tool</a>
         ) : (
           <button type="button" className="btn" disabled title="Coming soon">Support this tool</button>
         )}
