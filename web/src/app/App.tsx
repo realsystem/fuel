@@ -5,6 +5,8 @@ import { ImagePreviewGrid, ImageViewer } from './components/ImagePreview.tsx';
 import { ProcessingStatus, type RunState } from './components/ProcessingStatus.tsx';
 import { ResultsTable } from './components/ResultsTable.tsx';
 import { OdometerTable } from './components/OdometerTable.tsx';
+import { FuelEconomyPanel } from './components/FuelEconomyPanel.tsx';
+import { computeTrips, tripsToCsv } from '../services/TripService.ts';
 import { StatisticsPanel } from './components/StatisticsPanel.tsx';
 import { isCorrected, type FuelField, type FuelRecord } from '../models/FuelRecord.ts';
 import type { ImageProcessingService } from '../services/ImageProcessingService.ts';
@@ -138,6 +140,15 @@ export function App() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
+  const exportTrips = () => {
+    const blob = new Blob([tripsToCsv(trips)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = csvFileName().replace(/\.csv$/, '-trips.csv');
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
   const queued = records.filter((r) => r.status === 'queued');
   const results = records.filter((r) => r.status !== 'queued' || r.result);
   // Mixed uploads are separated automatically from what each photo was recognised as.
@@ -145,6 +156,7 @@ export function App() {
   const odometerResults = results.filter((r) => r.kind === 'odometer');
   const unrecognised = results.filter((r) => r.kind === 'unrecognized');
   const stats = useMemo(() => computeStatistics(records), [records]);
+  const trips = useMemo(() => computeTrips(records), [records]);
   const detectedCount = records.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
@@ -218,6 +230,13 @@ export function App() {
             onRemove={remove}
             onView={setViewing}
           />
+        </section>
+      ) : null}
+
+      {pumpResults.length && odometerResults.length ? (
+        <section className="card" aria-labelledby="eco-h">
+          <h2 id="eco-h">Fuel economy</h2>
+          <FuelEconomyPanel summary={trips} onExport={exportTrips} />
         </section>
       ) : null}
 

@@ -270,6 +270,35 @@ check, and `npm run odometer -- ../images/odometer` prints a per-photo table.
   nothing to read and is correctly reported as not recognised.
 - Every reading is mileage as displayed. Nothing here knows the vehicle.
 
+## 3c. Fuel economy: pairing fill-ups with odometer readings
+
+`src/services/TripService.ts` (pure, no UI, no image code) turns pump and
+odometer records into trips.
+
+1. **Pairing.** Each pump photo (volume and amount present) is matched to the
+   odometer photo taken closest to it in time, within 6 hours; each photo is
+   used once (smallest gaps first). Time is the EXIF capture time with its UTC
+   offset (§5a). A photo whose only date is the file's modified date is **not**
+   paired: that date says when the file was saved, not when the picture was
+   taken. Such photos are listed as unpaired.
+2. **Trips.** Fill-ups are sorted by time; each consecutive pair gives
+   distance (odometer difference), efficiency (distance / volume bought at the
+   later fill-up, the full-to-full method) and cost per distance (amount /
+   distance).
+3. **Cross-checks.** A trip is marked "check" and **left out of every average**
+   when: the odometer did not increase; the distance is over 1200; efficiency is
+   outside 5-80 per fuel unit; cost per distance is over 3; or the two odometer
+   photos show different units. A missed fill-up, a partial fill or a misread
+   digit all show up as one of these instead of silently skewing the result.
+4. Only records with status Confirmed or Detected are used (never Review or
+   Failed). A trip that includes an unconfirmed record is labelled Unconfirmed.
+
+Stated assumptions: efficiency assumes each fill-up filled the tank to the same
+level; it is mpg only if the pump shows gallons (otherwise distance per litre).
+Thresholds are in `TRIP_CONFIG`. Trips can be exported as a separate CSV.
+Tested with synthetic records (`test/trips.test.ts`); checked in the browser
+with EXIF-timed photos.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the

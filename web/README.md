@@ -11,6 +11,10 @@ export a CSV.
   There is no analytics and no account.
 - **Mixed folders.** Upload fuel pump photos and dashboard photos together;
   each is sorted automatically into fuel pump, odometer, or not recognised.
+- **Fuel economy.** When a folder has both kinds, each fill-up is paired with
+  the odometer photo taken nearest to it (by photo time), giving distance,
+  efficiency and cost per mile between fill-ups. Impossible-looking trips are
+  flagged and left out of the averages.
 - **Small.** About 330 KB of JavaScript, mostly React. No OpenCV or Tesseract
   download, and it works offline once loaded.
 - **Honest.** Uncertain readings are flagged for review instead of being passed
