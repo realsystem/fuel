@@ -43,6 +43,7 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          SUPPORT_URL: ${{ vars.SUPPORT_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

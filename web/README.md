@@ -29,6 +29,11 @@ npm run dev        # http://localhost:5173, rebuilds on change
 
 ## Build and deploy
 
+The footer's **Support this tool** button points at the `SUPPORT_URL` build
+setting (an https link). In GitHub: Settings → Secrets and variables → Actions →
+Variables → `SUPPORT_URL`. Locally: `SUPPORT_URL=https://… npm run build`. With
+no value a disabled placeholder is shown.
+
 ```bash
 npm run build      # writes static files to web/dist/
 ```

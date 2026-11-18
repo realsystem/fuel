@@ -1,3 +1,4 @@
+import { safeSupportUrl } from '../utils/supportUrl.ts';
 import { DEFAULT_MAX_BYTES } from '../utils/imageValidation.ts';
 import type { ProcessingConfig } from '../processor/config.ts';
 
@@ -9,6 +10,10 @@ export const APP_CONFIG = {
   maxImages: 50,
   /** Overrides passed to the processor; empty means use processor defaults. */
   processing: {} as Partial<ProcessingConfig>,
-  /** Where the Support button will point once a provider is chosen; null shows a placeholder. */
-  supportUrl: null as string | null,
+  /**
+   * Where the Support button points. Set at build time with the SUPPORT_URL
+   * environment variable (in CI: the SUPPORT_URL repository variable); when it
+   * is empty or not an https link, a disabled placeholder is shown.
+   */
+  supportUrl: safeSupportUrl(process.env.SUPPORT_URL),
 };

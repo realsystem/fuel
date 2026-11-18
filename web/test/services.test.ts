@@ -142,3 +142,11 @@ test('CSV carries the capture time and where it came from', () => {
   const r = { ...record('c', 40, 10), capturedAt: '2025-12-05T19:39:07-08:00', capturedSource: 'exif' as const };
   assert.match(recordsToCsv([r]).split('\r\n')[1], /^c\.jpg,2025-12-05T19:39:07-08:00,exif,10\.000,/);
 });
+
+test('support link accepts only plain https URLs', async () => {
+  const { safeSupportUrl } = await import('../src/utils/supportUrl.ts');
+  assert.equal(safeSupportUrl('https://buymeacoffee.com/someone'), 'https://buymeacoffee.com/someone');
+  for (const bad of ['', undefined, 'javascript:alert(1)', 'http://example.com', 'data:text/html,x', 'https://localhost', 'not a url']) {
+    assert.equal(safeSupportUrl(bad), null, String(bad));
+  }
+});
