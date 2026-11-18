@@ -46,7 +46,7 @@ export function applyResult(record: FuelRecord, result: ProcessingResult): FuelR
     return { ...base, status: 'failed', note: result.error?.message ?? ERROR_MESSAGES[code] };
   }
   if (result.status === 'no_numbers') {
-    return withDerived({ ...base, status: 'review', note: 'No numbers were found. You can enter the values by hand.' });
+    return withDerived({ ...base, status: 'review', note: result.error?.message ?? 'No numbers were found. You can enter the values by hand.' });
   }
   const note = result.warnings.length ? result.warnings.join(' ') : null;
   return withDerived({ ...base, status: result.status === 'ok' ? 'detected' : 'review', note });

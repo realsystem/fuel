@@ -11,6 +11,7 @@
     "test": "node --import tsx --test test/*.test.ts",
     "accuracy": "tsx scripts/accuracy.ts",
     "robustness": "tsx scripts/robustness.ts",
+    "negatives": "tsx scripts/negatives.ts",
     "debug-images": "tsx scripts/debug.ts"
   },
   "dependencies": {

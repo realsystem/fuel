@@ -77,10 +77,10 @@ not stored in the repository), in two groups:
 
 | | Tuning photos (`fuel*`) | Phone photos (`PXL_*`, `-49…`) |
 |---|---|---|
-| photos | 8 | 43 |
-| amount and volume both correct | 8 / 8 | **28 / 41** (+2 with unreadable amounts, scored on volume only: 2/2) |
+| photos | 8 | 44 |
+| amount and volume both correct | 8 / 8 | **29 / 42** (+2 with unreadable amounts, scored on volume only: 2/2) |
 | accepted without review | 8, all correct | **26, all correct** |
-| flagged for review | 0 | 17 |
+| flagged for review | 0 | 18 (5 of them actually correct) |
 | wrong but not flagged | 0 | **0** |
 
 The 43 phone photos were measured *before* any tuning on them: 27/41
@@ -136,6 +136,57 @@ horizontal-bar positions) before a new threshold can help.
 **The best next step for accuracy is taking photos without reflections.** A
 slight angle so you are not reflected in the screen, and shade from the sky,
 remove most of the failures above.
+
+## 3a. Protection from false data
+
+A photo that is not a pump display (trees and trucks, a document, a fence)
+used to produce made-up numbers: on 69 non-pump test images, **62 produced
+numbers** (pure noise gave "8"). Every one was flagged for review, but the
+table was pre-filled with values that meant nothing. Two causes:
+
+- a digit was "lit" wherever there was any ink along a segment, so a cell full
+  of texture lit every segment and scored a perfect "8";
+- any thin vertical mark was accepted as the digit "1", so tree trunks and
+  fence bars became numbers.
+
+What was added (`NumberDetector.isPlausibleLine`, `ImageProcessor.looksLikePumpDisplay`):
+
+1. **Clutter measure per digit.** In every 7-segment digit the channel between
+   the bars is empty, so ink there means the cell is not a clean digit. For a
+   "1", the bar must be solid. A line with too many cluttered digits is dropped.
+2. **A number has at least 3 digits**, and **a row of identical bars is not a
+   number** (fence, trunks).
+3. **A pump display shows at least two numbers, one with a decimal point.**
+   Otherwise nothing is pre-filled: the row says no pump display was
+   recognised and asks for a closer, reflection-free retake or manual entry.
+
+Measured with `npm run negatives -- <dir>` on 69 non-pump images (scikit-image
+sample photos and documents, hazard pictograms, 24 synthetic forests with
+tilted trunks and truck-like boxes, noise, stripes):
+
+| | Before | After |
+|---|---|---|
+| non-pump images that produced numbers | 62 / 69 | **0 / 69** |
+| tuning photos fully correct | 8 / 8 | 8 / 8 |
+| phone photos fully correct | 28 / 42 | **29 / 42** |
+| accepted without review, all correct | 26 | 26 |
+| wrong readings accepted without a flag | 0 | 0 |
+| robustness run, wrong without a flag | 1 | 1 (same known case) |
+
+The thresholds were chosen with a sweep over real and non-pump images: rule 3
+alone removes almost everything, and rule 1 stays as a second layer at the
+strictest setting that costs no correct value on the real photos. Every correct
+real reading has two lines and a decimal point; the one-line readings were all
+wrong. The tests in `test/falseData.test.ts` use generated scenes, so they need
+no photo files.
+
+Limits: this recognises *7-segment pump-like layouts*, not "fuel pumps". Another
+7-segment display with two numbers and a decimal point (a scale, a thermostat,
+a cash register) would be read. A photo of a pump with a single visible number
+is reported as not recognised rather than guessed. The 69 negatives are
+proxies: a real forest photo with truck registration plates or signage has not
+been measured here, so false readings on such photos remain possible but should
+be rare, and are always flagged for review.
 
 ## 4. Ready for backend offloading
 

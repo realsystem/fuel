@@ -12,6 +12,12 @@ export interface ProcessingConfig {
   thresholdOffset: number;
   /** A text line must be at least this fraction of the display height. */
   minLineHeightFraction: number;
+  /** A real number has at least this many digit cells (a pump never shows fewer than "0.00"). */
+  minLineDigits: number;
+  /** A digit with more clutter than this does not look like a clean 7-segment digit. */
+  digitClutterLimit: number;
+  /** A line is rejected when more than this fraction of its digits are cluttered. */
+  maxClutteredFraction: number;
   /** Maximum number of numeric lines to read from one display. */
   maxLines: number;
   /** Shear search range for italic digits (|shear| <= this). */
@@ -29,6 +35,9 @@ export const DEFAULT_CONFIG: ProcessingConfig = {
   thresholdBlockFraction: 0.25,
   thresholdOffset: 12,
   minLineHeightFraction: 0.12,
+  minLineDigits: 3,
+  digitClutterLimit: 0.35,
+  maxClutteredFraction: 0.4,
   maxLines: 3,
   maxShear: 0.35,
   minDigitScore: 0.6,

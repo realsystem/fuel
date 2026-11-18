@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { photosAvailable, runAccuracy, summarize } from '../scripts/accuracy.ts';
 
 // Levels at the time of writing; lower them only with a reason.
-const MIN_CORRECT = { tuning: 8, phone: 28 };
+const MIN_CORRECT = { tuning: 8, phone: 29 };
 
 // The photos are not stored in the repository (they can carry location data).
 // Put them in ../images to run this check locally; without them it is skipped.

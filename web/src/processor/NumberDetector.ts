@@ -43,6 +43,12 @@ export interface DetectedDigit {
   /** Runner-up digit, when it was close. */
   alternative?: string;
   box: Rect;
+  /**
+   * 0..1, how much ink sits where a real 7-segment digit is always empty (the
+   * channel between the bars) — or, for a "1", how far the bar is from solid.
+   * Textures, foliage and print give high values; a lit LCD digit gives ~0.
+   */
+  clutter: number;
 }
 
 export interface DetectedLine {
@@ -166,6 +172,29 @@ function segmentFill(m: Mask, x0: number, x1: number, y0: number, y1: number): n
   ];
 }
 
+/**
+ * Ink density in the two gaps between the top/middle/bottom bars. In every
+ * 7-segment digit the centre column there is empty, so ink means the cell is
+ * not a clean digit (foliage, text, noise, glare debris).
+ */
+function channelInk(m: Mask, x0: number, x1: number, y0: number, y1: number): number {
+  const w = x1 - x0, h = y1 - y0;
+  let ink = 0, total = 0;
+  for (const [ya, yb] of [[0.25, 0.36], [0.64, 0.75]]) {
+    const X0 = x0 + Math.floor(0.34 * w), X1 = x0 + Math.ceil(0.66 * w);
+    const Y0 = y0 + Math.floor(ya * h), Y1 = y0 + Math.ceil(yb * h);
+    for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) { total++; if (m.data[y * m.width + x]) ink++; }
+  }
+  return total ? ink / total : 1;
+}
+
+/** Fraction of a cell that is NOT ink; a lone "1" is a solid bar. */
+function barGaps(m: Mask, x0: number, x1: number, y0: number, y1: number): number {
+  let ink = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (m.data[y * m.width + x]) ink++;
+  return 1 - ink / Math.max(1, (x1 - x0) * (y1 - y0));
+}
+
 /** Match measured segment fills against the digit patterns. */
 export function classifySegments(fill: number[]): { char: string; score: number; alternative?: string } {
   const scored = DIGIT_PATTERNS.map((p) => {
@@ -183,6 +212,23 @@ export function classifySegments(fill: number[]): { char: string; score: number;
 }
 
 /**
+ * Does this line look like a printed 7-segment number rather than texture,
+ * foliage, text or noise that happened to produce digit-sized blobs?
+ *  - a pump number has at least a few digits;
+ *  - digits are clean: almost no ink in the channels between the bars;
+ *  - a row of identical thin bars (a fence, tree trunks) is not a number.
+ * A rejected line is dropped, never "fixed": the app prefers saying it found
+ * no number over pre-filling a made-up one.
+ */
+export function isPlausibleLine(line: DetectedLine, cfg: ProcessingConfig): boolean {
+  if (line.digits.length < cfg.minLineDigits) return false;
+  const cluttered = line.digits.filter((d) => d.clutter > cfg.digitClutterLimit).length;
+  if (cluttered > line.digits.length * cfg.maxClutteredFraction) return false;
+  if (line.digits.every((d) => d.char === '1')) return false;
+  return true;
+}
+
+/**
  * Read the numbers on a binarised display. Returns lines top to bottom.
  */
 export function detectNumbers(mask: Mask, cfg: ProcessingConfig): DetectedLine[] {
@@ -190,7 +236,7 @@ export function detectNumbers(mask: Mask, cfg: ProcessingConfig): DetectedLine[]
   const lines: DetectedLine[] = [];
   for (const band of findBands(mask, cfg)) {
     const line = readBand(mask, labels, components, band, cfg);
-    if (line) lines.push(line);
+    if (line && isPlausibleLine(line, cfg)) lines.push(line);
   }
   // Keep the most prominent lines (by digit height), but report them top to bottom.
   const kept = [...lines].sort((a, b) => b.digitHeight - a.digitHeight).slice(0, cfg.maxLines);
@@ -317,16 +363,19 @@ function readBand(mask: Mask, labels: Int32Array, comps: Component[], band: Band
   const digits: DetectedDigit[] = main.map((c) => {
     const w = c.b - c.a, h = c.bottom - c.top;
     let res: { char: string; score: number; alternative?: string };
+    let clutter: number;
     if (w < h * 0.3 || w < typicalW * 0.5) {
       // A lone vertical bar: the digit 1 (only the right-hand segments are lit).
       res = { char: '1', score: 0.9 };
+      clutter = barGaps(straight, c.a, c.b, c.top, c.bottom);
     } else {
       res = classifySegments(segmentFill(straight, c.a, c.b, c.top, c.bottom));
+      clutter = channelInk(straight, c.a, c.b, c.top, c.bottom);
     }
     if (res.score < cfg.minDigitScore) res = { ...res, char: '?' };
     const bx0 = Math.min(unshearX(c.a, c.top), unshearX(c.a, c.bottom));
     const bx1 = Math.max(unshearX(c.b, c.top), unshearX(c.b, c.bottom));
-    return { ...res, box: { x: bx0, y: band.y0 + c.top, width: bx1 - bx0, height: h } };
+    return { ...res, clutter, box: { x: bx0, y: band.y0 + c.top, width: bx1 - bx0, height: h } };
   });
 
   // Decimal point: the dot candidate lying between two digits of the main cluster.
