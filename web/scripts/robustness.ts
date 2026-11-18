@@ -5,12 +5,13 @@
  * Usage: npm run robustness
  */
 import sharp, { type Sharp } from 'sharp';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { processRgba } from '../src/processor/ImageProcessor.ts';
 
 const here = new URL('.', import.meta.url).pathname;
 const IMAGES = join(here, '../../images');
+if (!existsSync(IMAGES)) { console.log('No photos in ../images (they are not stored in the repository). Add some, with entries in test/fixtures/expected.json, to run this.'); process.exit(0); }
 const expected = JSON.parse(readFileSync(join(here, '../test/fixtures/expected.json'), 'utf8'));
 
 type Variant = { name: string; apply: (s: Sharp, w: number) => Sharp };

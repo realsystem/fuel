@@ -5,12 +5,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runAccuracy, summarize } from '../scripts/accuracy.ts';
+import { photosAvailable, runAccuracy, summarize } from '../scripts/accuracy.ts';
 
 // Levels at the time of writing; lower them only with a reason.
 const MIN_CORRECT = { tuning: 8, phone: 28 };
 
-test('regression photos: accuracy and honest review flags', async () => {
+// The photos are not stored in the repository (they can carry location data).
+// Put them in ../images to run this check locally; without them it is skipped.
+test('regression photos: accuracy and honest review flags', { skip: !photosAvailable() && 'photos not present (../images)' }, async () => {
   const rows = await runAccuracy();
   assert.ok(rows.length >= 51, `expected all regression photos, found ${rows.length}`);
 
