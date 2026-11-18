@@ -191,11 +191,13 @@ export function App() {
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
 
   return (
-    <div className="page">
+    <>
       <header className="masthead">
+        <a href="https://overlandn.com" className="back-to-main">← Back to main page</a>
         <h1>Fuel Photo Log</h1>
         <p className="muted">Read fuel pump displays and odometers from photos. Everything runs in your browser; photos are never uploaded.</p>
       </header>
+      <div className="page">
 
       <section className="card" aria-labelledby="upload-h">
         <h2 id="upload-h">Upload your photos</h2>
@@ -328,5 +330,6 @@ export function App() {
         <ImageViewer record={viewed} url={urls.get(viewed.id)!} onClose={() => setViewing(null)} />
       ) : null}
     </div>
+    </>
   );
 }
