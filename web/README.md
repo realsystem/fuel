@@ -1,6 +1,6 @@
 # Fuel Photo Log
 
-A small browser utility that reads fuel pump displays from photos. You upload
+A small browser utility that reads fuel pump displays and dashboard odometers from photos. You upload
 photos, it reads the numbers locally, you check and correct them, and you
 export a CSV.
 
@@ -9,7 +9,13 @@ export a CSV.
 - **Private.** Photos are processed in your browser and never uploaded. The
   page has a Content-Security-Policy that blocks connections to other hosts.
   There is no analytics and no account.
-- **Small.** About 240 KB of JavaScript, mostly React. No OpenCV or Tesseract
+- **Mixed folders.** Upload fuel pump photos and dashboard photos together;
+  each is sorted automatically into fuel pump, odometer, or not recognised.
+- **Fuel economy.** When a folder has both kinds, each fill-up is paired with
+  the odometer photo taken nearest to it (by photo time), giving distance,
+  efficiency and cost per mile between fill-ups. Impossible-looking trips are
+  flagged and left out of the averages.
+- **Small.** About 330 KB of JavaScript, mostly React. No OpenCV or Tesseract
   download, and it works offline once loaded.
 - **Honest.** Uncertain readings are flagged for review instead of being passed
   off as correct. Corrections are kept next to the detected values, never in
@@ -52,14 +58,18 @@ npm run typecheck    # TypeScript type check
 npm run accuracy     # per-photo accuracy report on the regression photos
 npm run robustness   # same photos under scale/rotation/blur/darkening/JPEG distortion
 npm run negatives -- <dir>   # photos that are NOT pumps: how often does it still invent numbers?
+npm run odometer -- <dir>    # odometer reader over a folder (uses <dir>/expected.json if present)
 npm run debug-images -- /tmp/out   # dump each photo's cropped display and binary mask
+python3 tools/train_glyphs.py --export   # retrain the odometer glyph model (synthetic fonts only)
 ```
 
 The regression photos are **not stored in the repository**: phone photos carry
 location data. Their expected values are in `test/fixtures/expected.json`. To
 run the accuracy checks, put your own photos in `../images` (git-ignored) and
 add their expected values to that file; without photos the regression test is
-skipped. Never commit photos without removing their location data first.
+skipped. Odometer photos go in `../images/odometer` with an `expected.json`
+(`{"photo.jpg": {"odometer": 12345}}`), also git-ignored, so mileage is not
+published. Never commit photos without removing their location data first.
 
 ## How to use
 

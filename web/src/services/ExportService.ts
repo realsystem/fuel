@@ -7,12 +7,15 @@ import { FIELD_DECIMALS, formatFixed } from '../utils/numberFormatting.ts';
 
 export const CSV_COLUMNS = [
   'file_name',
+  'kind',
   'captured_at',
   'captured_source',
   'fuel_volume',
   'amount',
   'unit_price',
   'unit_price_source',
+  'odometer',
+  'odometer_unit',
   'detection_status',
   'record_status',
   'user_corrected',
@@ -31,12 +34,15 @@ export function recordsToCsv(records: FuelRecord[]): string {
   for (const r of records) {
     rows.push([
       r.fileName,
+      r.kind ?? '',
       r.capturedAt ?? '',
       r.capturedSource ?? '',
       formatFixed(effectiveValue(r.volume), FIELD_DECIMALS.volume),
       formatFixed(effectiveValue(r.amount), FIELD_DECIMALS.amount),
       formatFixed(effectiveValue(r.unitPrice), FIELD_DECIMALS.unitPrice),
       valueSource(r.unitPrice),
+      formatFixed(effectiveValue(r.odometer), FIELD_DECIMALS.odometer),
+      r.kind === 'odometer' ? (r.odometerUnit ?? '') : '',
       r.result?.status ?? 'not_processed',
       r.status,
       isCorrected(r) ? 'yes' : 'no',

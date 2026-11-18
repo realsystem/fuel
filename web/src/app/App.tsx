@@ -4,8 +4,11 @@ import { UploadForm } from './components/UploadForm.tsx';
 import { ImagePreviewGrid, ImageViewer } from './components/ImagePreview.tsx';
 import { ProcessingStatus, type RunState } from './components/ProcessingStatus.tsx';
 import { ResultsTable } from './components/ResultsTable.tsx';
+import { OdometerTable } from './components/OdometerTable.tsx';
+import { FuelEconomyPanel } from './components/FuelEconomyPanel.tsx';
+import { computeTrips, tripsToCsv } from '../services/TripService.ts';
 import { StatisticsPanel } from './components/StatisticsPanel.tsx';
-import type { FuelField, FuelRecord } from '../models/FuelRecord.ts';
+import { isCorrected, type FuelField, type FuelRecord } from '../models/FuelRecord.ts';
 import type { ImageProcessingService } from '../services/ImageProcessingService.ts';
 import { BrowserSegmentProcessor } from '../services/BrowserSegmentProcessor.ts';
 import {
@@ -121,12 +124,12 @@ export function App() {
   const reprocess = (id: string) => {
     const r = records.find((x) => x.id === id);
     if (!r) return;
-    const hasEdits = r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null;
+    const hasEdits = isCorrected(r);
     if (hasEdits && !window.confirm('Reprocessing replaces your corrections for this image. Continue?')) return;
     processIds([id]);
   };
 
-  const confirmAllDetected = () => setRecords((rs) => rs.map((r) => (r.status === 'detected' ? confirmRecord(r) : r)));
+  const confirmAllDetected = () => setRecords((rs) => rs.map((r) => (r.status === 'detected' && r.kind !== 'odometer' ? confirmRecord(r) : r)));
 
   const exportCsv = () => {
     const blob = new Blob([recordsToCsv(records.filter((r) => r.result || r.status === 'confirmed'))], { type: 'text/csv;charset=utf-8' });
@@ -137,10 +140,24 @@ export function App() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
+  const exportTrips = () => {
+    const blob = new Blob([tripsToCsv(trips)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = csvFileName().replace(/\.csv$/, '-trips.csv');
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
   const queued = records.filter((r) => r.status === 'queued');
   const results = records.filter((r) => r.status !== 'queued' || r.result);
+  // Mixed uploads are separated automatically from what each photo was recognised as.
+  const pumpResults = results.filter((r) => r.kind !== 'odometer' && r.kind !== 'unrecognized');
+  const odometerResults = results.filter((r) => r.kind === 'odometer');
+  const unrecognised = results.filter((r) => r.kind === 'unrecognized');
   const stats = useMemo(() => computeStatistics(records), [records]);
-  const detectedCount = records.filter((r) => r.status === 'detected').length;
+  const trips = useMemo(() => computeTrips(records), [records]);
+  const detectedCount = records.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
 
@@ -148,11 +165,12 @@ export function App() {
     <div className="page">
       <header className="masthead">
         <h1>Fuel Photo Log</h1>
-        <p className="muted">Read fuel pump displays from photos. Everything runs in your browser; photos are never uploaded.</p>
+        <p className="muted">Read fuel pump displays and odometers from photos. Everything runs in your browser; photos are never uploaded.</p>
       </header>
 
       <section className="card" aria-labelledby="upload-h">
-        <h2 id="upload-h">Upload your fuel pump photographs</h2>
+        <h2 id="upload-h">Upload your photos</h2>
+        <p className="muted small">Fuel pump displays and dashboard odometers can be mixed, even a whole folder: each photo is sorted automatically.</p>
         <UploadForm onFiles={addFiles} disabled={busy} maxSizeLabel={formatBytes(APP_CONFIG.maxBytes)} />
         {rejected.length ? (
           <ul className="errors" role="alert">{rejected.map((e, i) => <li key={i}>{e}</li>)}</ul>
@@ -172,10 +190,10 @@ export function App() {
         {run ? <ProcessingStatus run={run} onCancel={() => abort.current?.abort()} /> : null}
       </section>
 
-      {results.length ? (
+      {pumpResults.length ? (
         <section className="card" aria-labelledby="results-h">
           <div className="card__head">
-            <h2 id="results-h">Processing results</h2>
+            <h2 id="results-h">Fuel pump photos ({pumpResults.length})</h2>
             {detectedCount ? (
               <button type="button" className="btn btn--small" onClick={confirmAllDetected}>Confirm {detectedCount} detected</button>
             ) : null}
@@ -186,7 +204,7 @@ export function App() {
             Click a photo to inspect what was read.
           </p>
           <ResultsTable
-            records={results}
+            records={pumpResults}
             urls={urls}
             busy={busy}
             onEdit={(id, field: FuelField, v) => update(id, (r) => correctField(r, field, v))}
@@ -195,6 +213,49 @@ export function App() {
             onRemove={remove}
             onView={setViewing}
           />
+        </section>
+      ) : null}
+
+      {odometerResults.length ? (
+        <section className="card" aria-labelledby="odo-h">
+          <h2 id="odo-h">Odometer photos ({odometerResults.length})</h2>
+          <p className="muted small">Read from the dashboard. The mileage is accepted only next to an “ODO” label or a mi/km unit; anything less certain is marked for you to check.</p>
+          <OdometerTable
+            records={odometerResults}
+            urls={urls}
+            busy={busy}
+            onEdit={(id, v) => update(id, (r) => correctField(r, 'odometer', v))}
+            onConfirm={(id, c) => update(id, (r) => (c ? confirmRecord(r) : unconfirmRecord(r)))}
+            onReprocess={reprocess}
+            onRemove={remove}
+            onView={setViewing}
+          />
+        </section>
+      ) : null}
+
+      {pumpResults.length && odometerResults.length ? (
+        <section className="card" aria-labelledby="eco-h">
+          <h2 id="eco-h">Fuel economy</h2>
+          <FuelEconomyPanel summary={trips} onExport={exportTrips} />
+        </section>
+      ) : null}
+
+      {unrecognised.length ? (
+        <section className="card" aria-labelledby="unrec-h">
+          <h2 id="unrec-h">Not recognised ({unrecognised.length})</h2>
+          <p className="muted small">These photos were not recognised as a fuel pump display or an odometer, so nothing was filled in.</p>
+          <ul className="unrecognised">
+            {unrecognised.map((r) => (
+              <li key={r.id}>
+                <button type="button" className="img-cell" onClick={() => setViewing(r.id)} title="Look at the photo">
+                  <img src={urls.get(r.id)} alt="" loading="lazy" />
+                  <span className="img-cell__name">{r.fileName}</span>
+                </button>
+                <button type="button" className="btn btn--small btn--ghost" disabled={busy} onClick={() => reprocess(r.id)}>Try again</button>
+                <button type="button" className="icon-btn" aria-label={`Remove ${r.fileName}`} onClick={() => remove(r.id)}>×</button>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

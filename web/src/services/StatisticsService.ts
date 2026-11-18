@@ -53,7 +53,9 @@ export function totals(records: FuelRecord[]): Totals {
   };
 }
 
-export function computeStatistics(records: FuelRecord[]): Statistics {
+export function computeStatistics(all: FuelRecord[]): Statistics {
+  // Pump statistics only: odometer photos and unrecognised photos are shown separately.
+  const records = all.filter((r) => r.kind !== 'odometer' && r.kind !== 'unrecognized');
   const processed = records.filter((r) => r.result !== null);
   const successful = processed.filter((r) => r.amount.detected !== null && r.volume.detected !== null && r.result?.status !== 'error');
   const confirmed = records.filter((r) => r.status === 'confirmed');

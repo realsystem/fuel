@@ -12,8 +12,10 @@ export function newRecord(id: string, fileName: string, fileSize: number): FuelR
   return {
     id, fileName, fileSize,
     capturedAt: null, capturedSource: null,
+    kind: null,
     status: 'queued',
     amount: emptyField(), volume: emptyField(), unitPrice: emptyField(),
+    odometer: emptyField(), odometerUnit: null,
     result: null, note: null, processedAt: null,
   };
 }
@@ -37,6 +39,9 @@ export function applyResult(record: FuelRecord, result: ProcessingResult): FuelR
     ...record,
     result,
     processedAt: result.processedAt,
+    kind: result.subject === 'odometer' ? 'odometer' : result.subject === 'unrecognized' ? 'unrecognized' : 'fuel_pump',
+    odometer: fieldFrom(result, result.fields.odometer),
+    odometerUnit: result.odometerUnit ?? null,
     amount: fieldFrom(result, result.fields.amount),
     volume: fieldFrom(result, result.fields.volume),
     unitPrice: fieldFrom(result, result.fields.unitPrice),
@@ -70,8 +75,9 @@ export function correctField(r: FuelRecord, field: FuelField, value: number | nu
   return next.status === 'confirmed' ? { ...next, status: 'review' } : next;
 }
 
-/** A record can be confirmed once it has an amount and a volume. */
+/** A pump record can be confirmed once it has an amount and a volume; an odometer record once it has a reading. */
 export function canConfirm(r: FuelRecord): boolean {
+  if (r.kind === 'odometer') { const o = effectiveValue(r.odometer); return o !== null && o > 0; }
   const a = effectiveValue(r.amount), v = effectiveValue(r.volume);
   return a !== null && v !== null && a > 0 && v > 0;
 }

@@ -184,3 +184,6 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
   .actions { justify-content: flex-end; gap: 4px; }
   .note { max-width: 60vw; }
 }
+
+.unrecognised { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.unrecognised li { display: flex; align-items: center; gap: 8px; }
