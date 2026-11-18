@@ -1,40 +1,24 @@
+/* Same dark overlanding theme as the other Overlandn tools (tires, wires, solar). */
 :root {
-  --bg: #f6f6f3;
-  --card: #ffffff;
-  --text: #1d1f1c;
-  --muted: #676b63;
-  --border: #dcddd6;
-  --accent: #2f6f4e;
-  --accent-text: #ffffff;
-  --accent-soft: #e2efe7;
-  --warn: #9a6a00;
-  --warn-soft: #fbf1d8;
-  --bad: #b23b2e;
-  --bad-soft: #f9e3df;
-  --info-soft: #e6eef8;
-  --info: #2c5a8c;
+  --bg: #0f1419;
+  --card: #1e242e;
+  --card-alt: #1a1f28;
+  --text: #e6edf3;
+  --muted: #768390;
+  --border: #343942;
+  --accent: #4eb56a;
+  --accent-hover: #5ec67a;
+  --accent-text: #0b1410;
+  --accent-soft: rgba(78, 181, 106, 0.14);
+  --warn: #e3b341;
+  --warn-soft: #3a3020;
+  --bad: #ff6b6b;
+  --bad-soft: #3d2420;
+  --info-soft: #1d2a3a;
+  --info: #58a6ff;
   --radius: 10px;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #151614;
-    --card: #1e201d;
-    --text: #e9eae5;
-    --muted: #9da196;
-    --border: #353831;
-    --accent: #6fbf8f;
-    --accent-text: #0f1a13;
-    --accent-soft: #1f3327;
-    --warn: #e2b54c;
-    --warn-soft: #3a3020;
-    --bad: #ef8a7d;
-    --bad-soft: #3d2420;
-    --info-soft: #1f2b3a;
-    --info: #8ab4e6;
-    color-scheme: dark;
-  }
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -42,11 +26,19 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-.page { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
-.masthead { text-align: center; margin-bottom: 20px; }
-.masthead h1 { margin: 0 0 4px; font-size: 1.7rem; letter-spacing: -0.01em; }
+.page { max-width: 1000px; margin: 0 auto; padding: 0 16px 48px; }
+.masthead {
+  position: relative; text-align: center; margin: 0 0 24px; padding: 14px 16px 18px;
+  background: linear-gradient(135deg, var(--card-alt) 0%, #242933 100%);
+  border-bottom: 2px solid var(--accent); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+.masthead h1 {
+  margin: 0 0 4px; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
 h2 { font-size: 1.1rem; margin: 0 0 12px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
@@ -191,9 +183,16 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
 .import { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
 .img-cell--none { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
 
-.portal { margin: 0 0 0.75rem; }
-.portal a {
-  display: inline-block; padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--card); color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 600;
+.back-to-main {
+  position: absolute; left: 16px; top: 10px;
+  display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.35rem 0.6rem;
+  font-size: 0.75rem; font-weight: 500; color: var(--muted); background: transparent;
+  border: 1px solid rgba(78, 181, 106, 0.3); border-radius: 3px; text-decoration: none;
+  opacity: 0.8; transition: all 0.2s ease;
 }
-.portal a:hover, .portal a:focus-visible { border-color: var(--accent); color: var(--accent); }
+.back-to-main:hover, .back-to-main:focus-visible {
+  color: var(--accent); background: rgba(78, 181, 106, 0.1); border-color: var(--accent); opacity: 1; transform: translateX(-2px);
+}
+@media (max-width: 640px) {
+  .back-to-main { position: static; margin-bottom: 10px; font-size: 0.7rem; }
+}
