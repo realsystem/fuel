@@ -187,3 +187,6 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
 
 .unrecognised { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
 .unrecognised li { display: flex; align-items: center; gap: 8px; }
+
+.import { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.img-cell--none { display: inline-flex; align-items: center; gap: 6px; cursor: default; }

@@ -332,6 +332,29 @@ days; readings with only a file date are counted but not used. Pump statistics
 are shown only when there are pump photos, so an odometer-only folder no longer
 shows a page of zeros.
 
+## 3d. History: nothing is saved, the CSV is the history
+
+The page stores nothing (no cookies, local storage or IndexedDB). A monthly cycle is: upload the
+month's photos, check the numbers, **Export CSV** and keep the file. Next cycle, **Import earlier
+data (CSV)** first, then add the new photos; the imported rows take part in fill-up pairing, so the
+trip across the month boundary gets its mpg.
+
+- `ImportService.ts` reads only this tool's own export format. RFC 4180 parser; limits of 2 MB and
+  5000 rows; every number is range-checked and dates must be ISO timestamps; bad rows are skipped
+  with a line number and reason, never partly imported. A leading `'` formula guard added on export is
+  removed. Imported rows carry `imported: true`, have no photo and cannot be reprocessed.
+- Rows are de-duplicated by kind + capture time + values (`recordKey`), so importing the same file
+  twice, or a file that overlaps new photos, adds nothing.
+- Pairing and trips use the imported capture times and values, so import needs `captured_at`.
+- `full_tank` (pump rows) is exported and imported.
+
+### Fill-ups and full tanks
+
+`TripService` builds one row per fill-up (pump photo paired with an odometer photo). A trip runs
+between two consecutive **full** fill-ups; partial fills (Full tank unticked) in between add their fuel
+and cost to the trip. Partial fills before the first full one are not used. Pump photos with no
+odometer photo, and odometer photos with no pump photo, appear as flagged rows.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the
