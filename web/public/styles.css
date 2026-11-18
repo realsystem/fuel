@@ -190,3 +190,10 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
 
 .import { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
 .img-cell--none { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+
+.portal { margin: 0 0 0.75rem; }
+.portal a {
+  display: inline-block; padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 600;
+}
+.portal a:hover, .portal a:focus-visible { border-color: var(--accent); color: var(--accent); }

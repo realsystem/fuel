@@ -192,6 +192,9 @@ export function App() {
 
   return (
     <div className="page">
+      <nav className="portal" aria-label="Site">
+        <a href="https://www.overlandn.com/">← Overlandn home</a>
+      </nav>
       <header className="masthead">
         <h1>Fuel Photo Log</h1>
         <p className="muted">Read fuel pump displays and odometers from photos. Everything runs in your browser; photos are never uploaded.</p>
