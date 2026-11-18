@@ -6,7 +6,7 @@
  * Photos whose amount is not readable by eye (expected amount null) are
  * scored on volume only and counted separately.
  */
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadRgba } from './loadImage.ts';
 import { processRgba } from '../src/processor/ImageProcessor.ts';
@@ -35,7 +35,12 @@ const here = new URL('.', import.meta.url).pathname;
 const IMAGES = join(here, '../../images');
 const EXPECTED = join(here, '../test/fixtures/expected.json');
 
+export function photosAvailable(): boolean {
+  return existsSync(IMAGES) && readdirSync(IMAGES).length > 0;
+}
+
 export async function runAccuracy(): Promise<AccuracyRow[]> {
+  if (!photosAvailable()) return [];
   const expected = JSON.parse(readFileSync(EXPECTED, 'utf8'));
   const rows: AccuracyRow[] = [];
   for (const f of readdirSync(IMAGES).sort()) {

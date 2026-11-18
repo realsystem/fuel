@@ -47,16 +47,18 @@ plain HTTP.
 ## Tests and reports
 
 ```bash
-npm test             # unit tests + regression test over ../images
+npm test             # unit tests (+ regression test when ../images exists)
 npm run typecheck    # TypeScript type check
 npm run accuracy     # per-photo accuracy report on the regression photos
 npm run robustness   # same photos under scale/rotation/blur/darkening/JPEG distortion
 npm run debug-images -- /tmp/out   # dump each photo's cropped display and binary mask
 ```
 
-The regression photos live in `../images` and their expected values are in
-`test/fixtures/expected.json`. To add a photo, put it in `images/`, add its
-expected values to that file, and run `npm run accuracy`.
+The regression photos are **not stored in the repository**: phone photos carry
+location data. Their expected values are in `test/fixtures/expected.json`. To
+run the accuracy checks, put your own photos in `../images` (git-ignored) and
+add their expected values to that file; without photos the regression test is
+skipped. Never commit photos without removing their location data first.
 
 ## How to use
 

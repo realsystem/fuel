@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readCaptureTime, formatCaptureTime } from '../src/utils/exif.ts';
 import { captureTimeOf } from '../src/services/CaptureTimeService.ts';
 
 const IMAGES = join(new URL('.', import.meta.url).pathname, '../../images');
+const HAVE = existsSync(join(IMAGES, 'PXL_20251206_033907396.jpg'));
+const NO_PHOTOS = !HAVE && 'photos not present (../images)';
 const buf = (f: string) => { const b = readFileSync(join(IMAGES, f)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer; };
 
 /** Build a tiny JPEG with an EXIF block holding the given strings. */
@@ -50,20 +52,21 @@ test('invalid or missing EXIF gives null and never throws', () => {
   for (let cut = 0; cut < good.length; cut++) readCaptureTime(good.slice(0, cut).buffer); // truncations must not throw
 });
 
-test('real phone photo: local time, not the UTC time in the file name', () => {
+test('real phone photo: local time, not the UTC time in the file name', { skip: NO_PHOTOS }, () => {
   // PXL_20251206_033907396 is UTC; the photo was taken at 19:39 on 5 December in UTC-8.
   assert.equal(formatCaptureTime(readCaptureTime(buf('PXL_20251206_033907396.jpg'))!), '2025-12-05T19:39:07-08:00');
 });
 
 test('photos without EXIF fall back to the file date, labelled as such', async () => {
-  const blob = Object.assign(new Blob([new Uint8Array(buf('fuel1.jpeg'))]), { lastModified: Date.UTC(2026, 0, 2, 12) });
+  const noExif = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]); // a JPEG with no metadata
+  const blob = Object.assign(new Blob([noExif]), { lastModified: Date.UTC(2026, 0, 2, 12) });
   const c = await captureTimeOf(blob);
   assert.equal(c?.source, 'file');
   assert.match(c!.at, /^2026-01-0[12]T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
-  assert.equal(await captureTimeOf(Object.assign(new Blob([new Uint8Array(buf('fuel1.jpeg'))]), { lastModified: 0 })), null);
+  assert.equal(await captureTimeOf(Object.assign(new Blob([noExif]), { lastModified: 0 })), null);
 });
 
-test('every phone photo that has a timestamp is read', () => {
+test('every phone photo that has a timestamp is read', { skip: NO_PHOTOS }, () => {
   const phone = readdirSync(IMAGES).filter((f) => f.startsWith('PXL_'));
   const read = phone.filter((f) => readCaptureTime(buf(f)) !== null);
   assert.ok(read.length >= 40, `expected most phone photos to have EXIF, got ${read.length}/${phone.length}`);

@@ -1,0 +1,4 @@
+# Personal photos (never commit: they can carry location data)
+images/
+/fuel*.jpeg
+/fuel*.png

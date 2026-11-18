@@ -72,7 +72,8 @@ and no global state.
 
 ## 3. Accuracy (measured, not estimated)
 
-`npm run accuracy` over `images/`, in two groups:
+`npm run accuracy` over a local, git-ignored `images/` folder (the photos are
+not stored in the repository), in two groups:
 
 | | Tuning photos (`fuel*`) | Phone photos (`PXL_*`, `-49…`) |
 |---|---|---|
