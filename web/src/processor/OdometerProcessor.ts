@@ -24,32 +24,52 @@ export function processOdometerRgba(
     processedAt: new Date().toISOString(),
   };
   const best = reading.best;
-  if (reading.status === 'no_odometer' || !best) {
+  const trip = reading.trip;
+  if (reading.status === 'no_odometer' || (!best && !trip)) {
     return {
       ...base, subject: 'unrecognized', status: 'no_numbers', values: [], fields: {}, warnings: [NOT_RECOGNISED_MESSAGE],
       error: { code: 'no_numbers', message: NOT_RECOGNISED_MESSAGE },
       durationMs: Date.now() - started,
     };
   }
-  const value: DetectedValue = {
-    id: 'odo1',
-    text: best.digits,
-    value: best.value,
-    confidence: Math.round(best.minDigitP * 1000) / 1000,
-    box: best.box,
-    field: 'odometer',
-    // Label or unit next to the number is what makes it an odometer rather than another number.
-    fieldConfidence: best.hasLabel || best.unit ? 0.95 : 0.5,
-    decimalInferred: false,
-    ambiguousDigits: best.ambiguousDigits,
-  };
+  const values: DetectedValue[] = [];
+  const fields: ProcessingResult['fields'] = {};
+  if (best) {
+    values.push({
+      id: 'odo1',
+      text: best.digits,
+      value: best.value,
+      confidence: Math.round(best.minDigitP * 1000) / 1000,
+      box: best.box,
+      field: 'odometer',
+      // Label or unit next to the number is what makes it an odometer rather than another number.
+      fieldConfidence: best.hasLabel || best.unit ? 0.95 : 0.5,
+      decimalInferred: false,
+      ambiguousDigits: best.ambiguousDigits,
+    });
+    fields.odometer = 'odo1';
+  }
+  if (trip) {
+    values.push({
+      id: 'trip1',
+      text: trip.digits,
+      value: trip.value,
+      confidence: Math.round(trip.minDigitP * 1000) / 1000,
+      box: trip.box,
+      field: 'trip',
+      fieldConfidence: 0.9,
+      decimalInferred: false,
+      ambiguousDigits: trip.ambiguousDigits,
+    });
+    fields.trip = 'trip1';
+  }
   return {
     ...base,
     subject: 'odometer',
     status: reading.status === 'ok' ? 'ok' : 'partial',
-    values: [value],
-    fields: { odometer: value.id },
-    odometerUnit: best.unit,
+    values,
+    fields,
+    odometerUnit: best?.unit ?? trip?.unit ?? null,
     warnings: reading.warnings,
     durationMs: Date.now() - started,
   };

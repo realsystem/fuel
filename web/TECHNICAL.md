@@ -259,6 +259,22 @@ The photos and the expected mileages are not in the repository; with them in
 `images/odometer/` (plus `expected.json`) `npm test` runs a local regression
 check, and `npm run odometer -- ../images/odometer` prints a per-photo table.
 
+**Trip meter vs odometer.** A dashboard can show both. The *odometer* is the
+total mileage (a whole number, with an "ODO" label or unit); the *trip meter*
+is the distance since the last reset (a smaller number, usually with one
+decimal: `123.4 mi`). The reader reports them separately, in separate
+fields, and a trip meter is never used as mileage (not in odometer statistics,
+not in fill-up pairing). A trip meter is accepted only when all of these hold:
+a decimal number with 1-2 decimals, a proper decimal-point dot, digits of one
+height on one baseline, a mi/km unit right after it (a merged "mi" or a word
+such as "miles" counts), digits large enough relative to the photo, and good
+digit confidence. Rates are rejected: "35.6 mpg" and "62.5 mph" have letters
+with descenders (p, g) after the m, and a capital word such as "MPG" is not a
+unit. A photo with only a trip meter and no odometer is kept as an odometer-type
+record with the trip filled in, marked for review. On the 10 dashboard photos
+the one real trip value (the hybrid's "Distance 0.0 miles") is found; false trips
+on the 69 non-dashboard images and the 52 pump photos: 0.
+
 **Known odometer limits**
 
 - Needs the digits at least about 10 px tall in the decoded image. A small
@@ -269,6 +285,10 @@ check, and `npm run odometer -- ../images/odometer` prints a per-photo table.
 - A dashboard that shows only a trip or range value, with no odometer, has
   nothing to read and is correctly reported as not recognised.
 - Every reading is mileage as displayed. Nothing here knows the vehicle.
+- A trip meter shown as a whole number without a unit or label (`TRIP A 123`) cannot
+  be told from range or another figure, so it is not read.
+- Only one trip value is kept per photo; when a screen shows two (trip A and B)
+  the photo is marked for review and lists both.
 
 ## 3c. Fuel economy: pairing fill-ups with odometer readings
 

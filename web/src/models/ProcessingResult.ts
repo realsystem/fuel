@@ -18,7 +18,7 @@ export interface BoundingBox {
  * detector exposes numbers it cannot classify rather than guessing.
  * New kinds (e.g. 'odometer') can be added without changing the shape.
  */
-export type FieldKind = 'amount' | 'volume' | 'unitPrice' | 'unknown' | (string & {});
+export type FieldKind = 'amount' | 'volume' | 'unitPrice' | 'odometer' | 'trip' | 'unknown' | (string & {});
 
 export interface DetectedValue {
   id: string;
@@ -60,8 +60,10 @@ export interface ProcessingResult {
     volume?: string;
     unitPrice?: string;
     odometer?: string;
+    /** Trip meter (a smaller distance since the last reset, usually with a decimal). */
+    trip?: string;
   };
-  /** Distance unit shown next to an odometer reading, when it was read. */
+  /** Distance unit shown next to the odometer or trip meter reading, when it was read. */
   odometerUnit?: 'mi' | 'km' | null;
   warnings: string[];
   error?: ProcessingError;

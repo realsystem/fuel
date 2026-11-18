@@ -15,10 +15,11 @@ for (const f of readdirSync(dir).filter((x) => /\.(jpe?g|png)$/i.test(x)).sort()
   const r = readOdometer(rgbaToValue(img.data, img.width, img.height));
   const b = r.best;
   const want = exp[f]?.odometer;
+  const tripTxt = r.trip ? ` trip=${r.trip.digits}${r.trip.unit ?? ''}` : '';
   const got = b ? b.value : null;
   const match = want === undefined ? '' : got === want ? 'OK ' : 'ERR';
   if (want !== undefined) { n++; if (got === want) ok++; else if (r.status === 'ok' && got !== null) wrongConfident++; }
-  console.log(`${match} ${f.padEnd(30)} ${r.status.padEnd(11)} got=${b ? b.digits + (b.unit ?? '') + (b.hasLabel ? ' ODO' : '') + ` p=${b.minDigitP.toFixed(2)}` : '-'} want=${want} ${Date.now() - t0}ms`);
+  console.log(`${match} ${f.padEnd(30)} ${r.status.padEnd(11)} got=${b ? b.digits + (b.unit ?? '') + (b.hasLabel ? ' ODO' : '') + ` p=${b.minDigitP.toFixed(2)}` : '-'} want=${want}${tripTxt} ${Date.now() - t0}ms`);
   if (process.argv.includes('--verbose')) for (const c of r.candidates) console.log('     ', c.digits, c.unit, c.hasLabel, c.score.toFixed(2), c.polarity);
 }
 if (n) console.log(`\n${ok}/${n} correct; confident-but-wrong: ${wrongConfident}`);

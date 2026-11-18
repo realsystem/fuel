@@ -46,6 +46,8 @@ export interface FuelRecord {
   unitPrice: FieldValue;
   /** Odometer reading (only used when kind is 'odometer'). */
   odometer: FieldValue;
+  /** Trip meter reading (distance since the last reset); only used when kind is 'odometer'. Never used as a mileage. */
+  trip: FieldValue;
   odometerUnit: 'mi' | 'km' | null;
   result: ProcessingResult | null;
   /** Human-readable reason when status is 'review' or 'failed'. */
@@ -53,7 +55,7 @@ export interface FuelRecord {
   processedAt: string | null;
 }
 
-export type FuelField = 'amount' | 'volume' | 'unitPrice' | 'odometer';
+export type FuelField = 'amount' | 'volume' | 'unitPrice' | 'odometer' | 'trip';
 export const FUEL_FIELDS: readonly FuelField[] = ['volume', 'amount', 'unitPrice'];
 export const ODOMETER_FIELDS: readonly FuelField[] = ['odometer'];
 
@@ -74,5 +76,5 @@ export function valueSource(f: FieldValue): ValueSource {
 }
 
 export function isCorrected(r: FuelRecord): boolean {
-  return r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null || r.odometer.corrected !== null;
+  return r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null || r.odometer.corrected !== null || r.trip.corrected !== null;
 }

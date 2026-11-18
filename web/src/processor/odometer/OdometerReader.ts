@@ -16,6 +16,9 @@ import { adaptiveThresholdDark, connectedComponents, invert, resize, type GrayIm
 import { classifyComponent, type GlyphGuess } from './glyphClassifier.ts';
 
 export interface OdometerCandidate {
+  /** 'odometer' is the total distance; 'trip' is a trip meter (a smaller number, usually with a decimal). */
+  kind: 'odometer' | 'trip';
+  /** Digits as shown; a trip meter keeps its decimal point ("123.4"). */
   digits: string;
   value: number;
   unit: 'mi' | 'km' | null;
@@ -31,9 +34,12 @@ export interface OdometerCandidate {
 }
 
 export interface OdometerReading {
+  /** no_odometer: nothing found. partial: found but needs checking (also when only a trip meter was found). */
   status: 'ok' | 'partial' | 'no_odometer';
   best: OdometerCandidate | null;
   candidates: OdometerCandidate[];
+  /** Best trip-meter reading, if the photo shows one. */
+  trip: OdometerCandidate | null;
   warnings: string[];
 }
 
@@ -45,6 +51,8 @@ export interface OdometerConfig {
   maxGlyphHeightFraction: number;
   /** Digits taller than this fraction of the photo need an ODO label to be accepted. */
   maxUnlabelledHeightFraction: number;
+  /** A trip meter is never accepted for glyphs smaller than this fraction of the photo (specks, texture). */
+  minTripHeightFraction: number;
   minDigitP: number;
 }
 
@@ -55,6 +63,7 @@ export const ODOMETER_CONFIG: OdometerConfig = {
   minGlyphHeight: 9,
   maxGlyphHeightFraction: 0.12,
   maxUnlabelledHeightFraction: 0.06,
+  minTripHeightFraction: 0.01,
   minDigitP: 0.55,
 };
 
@@ -75,9 +84,13 @@ function splitWide(mask: Mask, labels: Int32Array, c: { x: number; y: number; wi
   return [l, r].filter((p): p is Rect => !!p && p.width >= 2 && p.height >= 6);
 }
 
+const WORD_GUESS: GlyphGuess = { cls: 'other', p: 1, probs: new Array(14).fill(0).map((_, i) => (i === 13 ? 1 : 0)), bestDigit: '0' };
+
 interface Glyph {
   x: number; y: number; w: number; h: number; cx: number; cy: number;
   g: GlyphGuess;
+  /** A merged word blob, not a single glyph. */
+  isWord?: boolean;
   /** Re-classify this component from a different crop (used to drop stuck-on bezel edges). */
   retry: (r: Rect) => GlyphGuess;
 }
@@ -113,6 +126,7 @@ function candidatesFromMask(mask: Mask, polarity: OdometerCandidate['polarity'],
   const { labels, components } = connectedComponents(mask);
   const maxH = mask.height * cfg.maxGlyphHeightFraction;
   const glyphs: Glyph[] = [];
+  const words: Glyph[] = [];
   const dots: Dot[] = [];
   for (const c of components) {
     if (c.height >= cfg.minGlyphHeight && c.height <= maxH && c.width <= c.height * 1.6 && c.area >= 10) {
@@ -123,6 +137,9 @@ function candidatesFromMask(mask: Mask, polarity: OdometerCandidate['polarity'],
         const g = classifyComponent(mask, labels, c.label, part);
         glyphs.push({ x: part.x, y: part.y, w: part.width, h: part.height, cx: part.x + part.width / 2, cy: part.y + part.height / 2, g, retry: (r) => classifyComponent(mask, labels, c.label, r) });
       }
+    } else if (c.height >= cfg.minGlyphHeight && c.height <= maxH && c.width > c.height * 1.6 && c.width <= c.height * 6 && c.area >= 20) {
+      // A whole lowercase word merged into one blob ("miles"): not classified, only used as unit evidence.
+      words.push({ x: c.x, y: c.y, w: c.width, h: c.height, cx: c.x + c.width / 2, cy: c.y + c.height / 2, g: WORD_GUESS, retry: () => WORD_GUESS, isWord: true });
     } else if (c.height >= 2 && c.width >= 2 && c.height <= cfg.minGlyphHeight * 1.6 && c.width <= cfg.minGlyphHeight * 1.6 && c.area >= 4) {
       dots.push({ x: c.x, y: c.y, w: c.width, h: c.height, cx: c.x + c.width / 2, cy: c.y + c.height / 2 });
     }
@@ -130,7 +147,7 @@ function candidatesFromMask(mask: Mask, polarity: OdometerCandidate['polarity'],
   const runs = groupRuns(glyphs);
   const out: OdometerCandidate[] = [];
   for (const run of runs) {
-    out.push(...readRun(run, glyphs, dots, polarity, cfg, mask.height));
+    out.push(...readRun(run, glyphs.concat(words), dots, polarity, cfg, mask.height));
   }
   return out;
 }
@@ -227,11 +244,35 @@ function readRun(run: Glyph[], all: Glyph[], dots: Dot[], polarity: OdometerCand
     const notes: string[] = [];
     const before = sepAfter[i - 1];
     const after = sepAfter[j];
+    if (after === '.' && before !== '.' && before !== ':' && !hasLabel) {
+      // A decimal number: a trip meter ("123.4 mi"), unless the unit says it is a rate (mpg, mph).
+      let k = j + 1;
+      while (k + 1 < run.length && isDigit(ch[k + 1]) && sepAfter[k] === '') k++;
+      const frac = isDigit(ch[j + 1] ?? '_') ? k - j : 0;
+      const whole = digits.length;
+      if (frac >= 1 && frac <= 2 && whole >= 1 && whole <= 5 && sepAfter[k] !== '.' && sepAfter[k] !== ':') {
+        const hardUnit = unitAfter(run, ch, k, all, h);
+        const tripUnit = hardUnit ?? softUnitAfter(run[k], all, h);
+        const minT = Math.min(...views.slice(segStart, k + 1).map((v) => v.conf));
+        const gl = run.slice(segStart, k + 1);
+        if ((tripUnit === 'mi' || tripUnit === 'km') && minT >= 0.7 && h <= imageHeight * cfg.maxUnlabelledHeightFraction && h >= imageHeight * cfg.minTripHeightFraction && evenGlyphs(gl) && properDot(run[j], run[j + 1], dots, h, base)) {
+          const text = ch.slice(segStart, j + 1).join('') + '.' + ch.slice(j + 1, k + 1).join('');
+          const bx0 = Math.min(...gl.map((g) => g.x)), by0 = Math.min(...gl.map((g) => g.y));
+          const bx1 = Math.max(...gl.map((g) => g.x + g.w)), by1 = Math.max(...gl.map((g) => g.y + g.h));
+          out.push({
+            kind: 'trip', digits: text, value: Number(text), unit: tripUnit, hasLabel: false, minDigitP: minT, score: 2 + minT,
+            box: { x: bx0, y: by0, width: bx1 - bx0, height: by1 - by0 }, polarity, ambiguousDigits: [], notes: ['trip meter'],
+          });
+        }
+        i = k + 1; continue;
+      }
+    }
     if (before === '.' || before === ':' || after === '.' || after === ':') { i = j + 1; continue; }
     if (digits.length < 3 || digits.length > 6) { i = j + 1; continue; }
     if (looksLikeSegmentNoise(digits)) { i = j + 1; continue; }
     // Unit to the right: m (mi/miles) or k (km). "mph"/"mpg" start with m too: the next glyph decides.
     const unit = unitAfter(run, ch, j, all, h);
+    if (unit === 'rate') { i = j + 1; continue; }
     if (digits.length < 5 && !hasLabel) { i = j + 1; continue; }
     // Without an ODO label, text this large is a 7-segment pump display (its fragments read as digits), not a dashboard.
     if (!hasLabel && h > imageHeight * cfg.maxUnlabelledHeightFraction) { i = j + 1; continue; }
@@ -247,7 +288,7 @@ function readRun(run: Glyph[], all: Glyph[], dots: Dot[], polarity: OdometerCand
     });
     const score = (hasLabel ? 3 : 0) + (unit ? 2 : 0) + (digits.length >= 5 && digits.length <= 6 ? 1 : 0) + minP;
     out.push({
-      digits, value: Number(digits), unit, hasLabel, minDigitP: minP, score,
+      kind: 'odometer', digits, value: Number(digits), unit: unit as 'mi' | 'km' | null, hasLabel, minDigitP: minP, score,
       box: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }, polarity, ambiguousDigits: ambiguous, notes,
     });
     i = j + 1;
@@ -277,7 +318,8 @@ function labelLeftOf(first: Glyph, all: Glyph[]): boolean {
 }
 const GLYPH_D = 10;
 
-function unitAfter(run: Glyph[], ch: string[], j: number, all: Glyph[], h: number): 'mi' | 'km' | null {
+/** 'rate' means mpg / mph (letters with descenders follow the m): a fuel economy or speed, not a distance. */
+function unitAfter(run: Glyph[], ch: string[], j: number, all: Glyph[], h: number): 'mi' | 'km' | 'rate' | null {
   const last = run[j];
   // Next glyph in the same run, or the nearest glyph to the right on the same line.
   const right = all.filter((g) => g.x > last.x + last.w - 1 && g.x - (last.x + last.w) < h * 2.6 && Math.abs(g.cy - last.cy) < h * 0.6 && g !== last).sort((a, b) => a.x - b.x);
@@ -286,11 +328,49 @@ function unitAfter(run: Glyph[], ch: string[], j: number, all: Glyph[], h: numbe
   const k = u.g.cls;
   if (k === 'k') return 'km';
   if (k === 'm') {
-    // "mi" / "mile": next glyph is a narrow stem. "mph" / "mpg": next glyph is as wide as a letter.
+    // "mi" / "miles" have no descenders; "mpg" (p, g) and "mph" (p) do.
+    const base = last.y + last.h;
+    const tail = all.filter((g) => g.x > u.x + u.w - 1 && g.x - (u.x + u.w) < h * 1.6 && Math.abs(g.cy - last.cy) < h * 0.9 && g.h > h * 0.4 && g.h < h * 1.25 && g.w < h * 1.2);
+    if (tail.some((g) => g.y + g.h > base + h * 0.22)) return 'rate';
     return 'mi';
   }
   void ch;
   return null;
+}
+
+/** The decimal point: a small, roughly square dot on the baseline between two digits. */
+function properDot(a: Glyph, b: Glyph, dots: Dot[], h: number, base: number): boolean {
+  return dots.some((d) => d.cx >= a.x + a.w - 1 && d.cx <= b.x + 1
+    && d.cy > base - h * 0.3 && d.cy < base + h * 0.35
+    && d.w >= h * 0.12 && d.w <= h * 0.45 && d.h >= h * 0.12 && d.h <= h * 0.45 && d.w / d.h >= 0.6 && d.w / d.h <= 1.7);
+}
+
+/** Digits of one number are the same height and sit on one baseline; specks and texture do not. */
+function evenGlyphs(gl: Glyph[]): boolean {
+  const hs = gl.map((g) => g.h), bs = gl.map((g) => g.y + g.h);
+  const mh = hs.reduce((a, b) => a + b, 0) / hs.length;
+  return hs.every((x) => Math.abs(x - mh) <= mh * 0.18) && Math.max(...bs) - Math.min(...bs) <= mh * 0.15;
+}
+
+/**
+ * A lowercase, baseline-aligned, letter-wide glyph right after a decimal number ("mi" merged into one
+ * blob, or an 'm' the classifier was unsure about). Used only for trip meters, which need a distance unit
+ * but are never accepted on this evidence alone without good digits. Rates (mpg, mph) have descenders.
+ */
+function softUnitAfter(last: Glyph, all: Glyph[], h: number): 'mi' | null {
+  const base = last.y + last.h;
+  const right = all.filter((g) => g.x > last.x + last.w - 1 && g.x - (last.x + last.w) < h * 1.2 && Math.abs(g.cy - last.cy) < h * 0.9 && g !== last).sort((a, b) => a.x - b.x);
+  const u = right[0];
+  if (!u) return null;
+  // Merged "mi" is about as tall as a digit, so width tells it from a digit (digits are narrower than tall).
+  const lower = u.h >= h * 0.42 && u.h <= h * 1.12 && Math.abs(u.y + u.h - base) <= h * 0.2 && u.w / u.h >= 0.85 && u.w / u.h <= (u.isWord ? 6 : 2.2);
+  if (!lower) return null;
+  // Capital letters after it ("MPG") make it a word, not a unit.
+  const next = all.filter((g) => g.x > u.x + u.w - 1 && g.x - (u.x + u.w) < h * 0.6 && Math.abs(g.cy - u.cy) < h * 0.6).sort((a, b) => a.x - b.x)[0];
+  if (next && next.h >= h * 0.9 && next.w >= h * 0.45) return null;
+  const tail = all.filter((g) => g.x > u.x + u.w - 1 && g.x - (u.x + u.w) < h * 1.6 && Math.abs(g.cy - last.cy) < h * 0.9 && g.h > h * 0.4 && g.h < h * 1.25 && g.w < h * 1.2);
+  if (tail.some((g) => g.y + g.h > base + h * 0.22)) return null;
+  return 'mi';
 }
 
 /** Alternating or near-constant digits ("89894", "80808") are what the segments of a 7-segment display produce. */
@@ -321,12 +401,23 @@ function overlap(a: OdometerCandidate['box'], b: OdometerCandidate['box']): numb
   return ((x1 - x0) * (y1 - y0)) / Math.min(a.width * a.height, b.width * b.height);
 }
 
-function decide(cands: OdometerCandidate[], cfg: OdometerConfig): OdometerReading {
+function decide(all: OdometerCandidate[], cfg: OdometerConfig): OdometerReading {
   const warnings: string[] = [];
+  const trips = all.filter((c) => c.kind === 'trip').sort((a, b) => b.score - a.score);
+  const cands = all.filter((c) => c.kind === 'odometer');
+  const trip = trips[0] ?? null;
+  const otherTrips = trips.filter((t) => t !== trip && t.value !== trip?.value);
+  if (otherTrips.length) warnings.push(`More than one trip meter value was found (${[trip!, ...otherTrips].map((t) => t.digits).join(', ')}) - please check which one you want.`);
+
   const good = cands.filter((c) => c.hasLabel || c.unit);
   const pool = good.length ? good : cands;
   pool.sort((a, b) => b.score - a.score);
-  if (!pool.length) return { status: 'no_odometer', best: null, candidates: [], warnings: ['No odometer reading was found in this photo.'] };
+  if (!pool.length) {
+    if (trip) {
+      return { status: 'partial', best: null, candidates: [], trip, warnings: ['Only a trip meter reading was found; the odometer is not visible in this photo.', ...warnings] };
+    }
+    return { status: 'no_odometer', best: null, candidates: [], trip: null, warnings: ['No odometer reading was found in this photo.'] };
+  }
   const best = pool[0];
   const rivals = pool.filter((c) => c !== best && c.value !== best.value && c.score >= best.score - 1);
   let status: OdometerReading['status'] = 'ok';
@@ -334,5 +425,6 @@ function decide(cands: OdometerCandidate[], cfg: OdometerConfig): OdometerReadin
   if (best.minDigitP < cfg.minDigitP) { status = 'partial'; warnings.push('Some digits were hard to read - please check the number.'); }
   if (best.ambiguousDigits.length) { status = 'partial'; warnings.push('A digit looked like another digit - please check the number.'); }
   if (rivals.length) { status = 'partial'; warnings.push(`Another possible mileage was also found (${rivals.map((r) => r.digits).join(', ')}) - please confirm.`); }
-  return { status, best, candidates: pool.slice(0, 5), warnings };
+  if (trip && otherTrips.length) status = 'partial';
+  return { status, best, candidates: pool.slice(0, 5), trip, warnings };
 }

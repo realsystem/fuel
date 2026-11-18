@@ -15,6 +15,8 @@ export a CSV.
   the odometer photo taken nearest to it (by photo time), giving distance,
   efficiency and cost per mile between fill-ups. Impossible-looking trips are
   flagged and left out of the averages.
+- **Odometer or trip meter.** A dashboard's total mileage and its trip meter
+  (smaller number, with a decimal) are read separately and never mixed up.
 - **Odometer-only works too.** With just odometer photos you get distance,
   per-day / per-month / projected per-year mileage; readings that contradict the
   rest are left out and listed.

@@ -127,8 +127,8 @@ test('CSV has a header, fixed decimals and correction flag', () => {
   const recs = [confirmRecord(record('a', 40, 10)), correctField(record('b', 20, 4.348), 'amount', 20.5)];
   const lines = recordsToCsv(recs).trimEnd().split('\r\n');
   assert.equal(lines[0], CSV_COLUMNS.join(','));
-  assert.equal(lines[1], 'a.jpg,fuel_pump,,,10.000,40.00,4.000,derived,,,ok,confirmed,no,2026-10-30T00:00:00.000Z');
-  assert.match(lines[2], /^b\.jpg,fuel_pump,,,4\.348,20\.50,4\.715,derived,,,ok,detected,yes,/);
+  assert.equal(lines[1], 'a.jpg,fuel_pump,,,10.000,40.00,4.000,derived,,,,ok,confirmed,no,2026-10-30T00:00:00.000Z');
+  assert.match(lines[2], /^b\.jpg,fuel_pump,,,4\.348,20\.50,4\.715,derived,,,,ok,detected,yes,/);
 });
 
 test('CSV cells are quoted and protected against formula injection', () => {
@@ -171,7 +171,7 @@ test('odometer results become odometer records with their own field, kept out of
   assert.equal(edited.odometer.detected, 53164);
   assert.equal(computeStatistics([r]).imagesProcessed, 0);
   const csv = recordsToCsv([edited]).split('\r\n');
-  assert.match(csv[1], /^o\.jpg,odometer,,,,,,missing,53165,mi,ok,detected,yes,/);
+  assert.match(csv[1], /^o\.jpg,odometer,,,,,,missing,53165,mi,,ok,detected,yes,/);
 });
 
 test('photos that are neither a pump nor an odometer are kept apart', async () => {
@@ -182,4 +182,21 @@ test('photos that are neither a pump nor an odometer are kept apart', async () =
   const r = applyResult(newRecord('f', 'f.jpg', 1), res);
   assert.equal(r.kind, 'unrecognized');
   assert.equal(r.status, 'review');
+});
+
+test('trip meter readings are kept in their own field and never count as mileage', async () => {
+  const res: ProcessingResult = {
+    schemaVersion: 1, processor: 't', subject: 'odometer', imageName: 't.jpg', imageSize: { width: 1, height: 1 },
+    status: 'partial', warnings: ['Only a trip meter reading was found; the odometer is not visible in this photo.'], processedAt: '2026-10-30T00:00:00.000Z', durationMs: 1,
+    values: [{ id: 'trip1', text: '123.4', value: 123.4, confidence: 0.99, box: null, field: 'trip', fieldConfidence: 0.9, decimalInferred: false, ambiguousDigits: [] }],
+    fields: { trip: 'trip1' }, odometerUnit: 'mi',
+  };
+  const r = applyResult(newRecord('t', 't.jpg', 1), res);
+  assert.equal(r.kind, 'odometer');
+  assert.equal(r.trip.detected, 123.4);
+  assert.equal(r.odometer.detected, null);
+  assert.equal(canConfirm(r), true);
+  assert.equal(effectiveValue(r.odometer), null); // a trip meter is never used as mileage
+  const csv = recordsToCsv([r]).split('\r\n');
+  assert.match(csv[1], /^t\.jpg,odometer,,,,,,missing,,mi,123\.4,/);
 });

@@ -26,7 +26,7 @@ export function formatFixed(n: number | null | undefined, decimals: number): str
 }
 
 /** Decimals used for display and export of each field. */
-export const FIELD_DECIMALS = { amount: 2, volume: 3, unitPrice: 3, odometer: 0 } as const;
+export const FIELD_DECIMALS = { amount: 2, volume: 3, unitPrice: 3, odometer: 0, trip: 1 } as const;
 
 /** Count digits after the decimal point in a numeric string ("24.07" → 2, "18" → 0). */
 export function decimalPlaces(text: string): number {
