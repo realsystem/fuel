@@ -27,6 +27,9 @@ export type RecordStatus =
   | 'confirmed'   // user confirmed the values
   | 'failed';
 
+/** What a photo was recognised as. null until it has been processed. */
+export type RecordKind = 'fuel_pump' | 'odometer' | 'unrecognized';
+
 export interface FuelRecord {
   id: string;
   fileName: string;
@@ -35,18 +38,24 @@ export interface FuelRecord {
   capturedAt: string | null;
   /** 'exif' = from the photo's metadata; 'file' = the file's modified date (less reliable). */
   capturedSource: 'exif' | 'file' | null;
+  /** Set from the processing result: pump photos and odometer photos are separated automatically. */
+  kind: RecordKind | null;
   status: RecordStatus;
   amount: FieldValue;
   volume: FieldValue;
   unitPrice: FieldValue;
+  /** Odometer reading (only used when kind is 'odometer'). */
+  odometer: FieldValue;
+  odometerUnit: 'mi' | 'km' | null;
   result: ProcessingResult | null;
   /** Human-readable reason when status is 'review' or 'failed'. */
   note: string | null;
   processedAt: string | null;
 }
 
-export type FuelField = 'amount' | 'volume' | 'unitPrice';
+export type FuelField = 'amount' | 'volume' | 'unitPrice' | 'odometer';
 export const FUEL_FIELDS: readonly FuelField[] = ['volume', 'amount', 'unitPrice'];
+export const ODOMETER_FIELDS: readonly FuelField[] = ['odometer'];
 
 export function emptyField(): FieldValue {
   return { detected: null, detectedText: null, confidence: 0, corrected: null, derived: null };
@@ -65,5 +74,5 @@ export function valueSource(f: FieldValue): ValueSource {
 }
 
 export function isCorrected(r: FuelRecord): boolean {
-  return r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null;
+  return r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null || r.odometer.corrected !== null;
 }

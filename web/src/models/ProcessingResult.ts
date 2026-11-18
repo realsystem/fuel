@@ -45,8 +45,11 @@ export interface ProcessingResult {
   schemaVersion: 1;
   /** Identifier of the processor that produced this, e.g. "browser-segment@0.1.0". */
   processor: string;
-  /** What kind of image this was read as. Future: 'odometer', 'receipt'. */
-  subject: 'fuel_pump' | (string & {});
+  /**
+   * What the photo was recognised as. 'unrecognized' means it is neither a pump
+   * display nor an odometer. Future: 'receipt'.
+   */
+  subject: 'fuel_pump' | 'odometer' | 'unrecognized' | (string & {});
   imageName: string;
   imageSize: { width: number; height: number } | null;
   status: ProcessingStatus;
@@ -56,7 +59,10 @@ export interface ProcessingResult {
     amount?: string;
     volume?: string;
     unitPrice?: string;
+    odometer?: string;
   };
+  /** Distance unit shown next to an odometer reading, when it was read. */
+  odometerUnit?: 'mi' | 'km' | null;
   warnings: string[];
   error?: ProcessingError;
   processedAt: string;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateImageFile } from '../src/utils/imageValidation.ts';
 import { decimalPlaces, formatFixed, parseNumber } from '../src/utils/numberFormatting.ts';
-import { applyResult, confirmRecord, correctField, newRecord } from '../src/services/RecordService.ts';
+import { applyResult, canConfirm, confirmRecord, correctField, newRecord } from '../src/services/RecordService.ts';
 import { computeStatistics } from '../src/services/StatisticsService.ts';
 import { CSV_COLUMNS, csvCell, recordsToCsv } from '../src/services/ExportService.ts';
 import { effectiveValue, type FuelRecord } from '../src/models/FuelRecord.ts';
@@ -127,8 +127,8 @@ test('CSV has a header, fixed decimals and correction flag', () => {
   const recs = [confirmRecord(record('a', 40, 10)), correctField(record('b', 20, 4.348), 'amount', 20.5)];
   const lines = recordsToCsv(recs).trimEnd().split('\r\n');
   assert.equal(lines[0], CSV_COLUMNS.join(','));
-  assert.equal(lines[1], 'a.jpg,,,10.000,40.00,4.000,derived,ok,confirmed,no,2026-10-30T00:00:00.000Z');
-  assert.match(lines[2], /^b\.jpg,,,4\.348,20\.50,4\.715,derived,ok,detected,yes,/);
+  assert.equal(lines[1], 'a.jpg,fuel_pump,,,10.000,40.00,4.000,derived,,,ok,confirmed,no,2026-10-30T00:00:00.000Z');
+  assert.match(lines[2], /^b\.jpg,fuel_pump,,,4\.348,20\.50,4\.715,derived,,,ok,detected,yes,/);
 });
 
 test('CSV cells are quoted and protected against formula injection', () => {
@@ -140,7 +140,7 @@ test('CSV cells are quoted and protected against formula injection', () => {
 
 test('CSV carries the capture time and where it came from', () => {
   const r = { ...record('c', 40, 10), capturedAt: '2025-12-05T19:39:07-08:00', capturedSource: 'exif' as const };
-  assert.match(recordsToCsv([r]).split('\r\n')[1], /^c\.jpg,2025-12-05T19:39:07-08:00,exif,10\.000,/);
+  assert.match(recordsToCsv([r]).split('\r\n')[1], /^c\.jpg,fuel_pump,2025-12-05T19:39:07-08:00,exif,10\.000,/);
 });
 
 test('support link accepts only plain https URLs', async () => {
@@ -151,4 +151,35 @@ test('support link accepts only plain https URLs', async () => {
   for (const bad of ['', undefined, 'javascript:alert(1)', 'http://example.com', 'data:text/html,x', 'https://localhost', 'not a url']) {
     assert.equal(safeSupportUrl(bad), null, String(bad));
   }
+});
+
+test('odometer results become odometer records with their own field, kept out of fuel statistics', async () => {
+  const { computeStatistics } = await import('../src/services/StatisticsService.ts');
+  const res: ProcessingResult = {
+    schemaVersion: 1, processor: 't', subject: 'odometer', imageName: 'o.jpg', imageSize: { width: 1, height: 1 },
+    status: 'ok', warnings: [], processedAt: '2026-10-30T00:00:00.000Z', durationMs: 1,
+    values: [{ id: 'odo1', text: '53164', value: 53164, confidence: 0.99, box: null, field: 'odometer', fieldConfidence: 0.95, decimalInferred: false, ambiguousDigits: [] }],
+    fields: { odometer: 'odo1' }, odometerUnit: 'mi',
+  };
+  const r = applyResult(newRecord('o', 'o.jpg', 1), res);
+  assert.equal(r.kind, 'odometer');
+  assert.equal(r.odometer.detected, 53164);
+  assert.equal(r.odometerUnit, 'mi');
+  assert.equal(canConfirm(r), true);
+  const edited = correctField(r, 'odometer', 53165);
+  assert.equal(effectiveValue(edited.odometer), 53165);
+  assert.equal(edited.odometer.detected, 53164);
+  assert.equal(computeStatistics([r]).imagesProcessed, 0);
+  const csv = recordsToCsv([edited]).split('\r\n');
+  assert.match(csv[1], /^o\.jpg,odometer,,,,,,missing,53165,mi,ok,detected,yes,/);
+});
+
+test('photos that are neither a pump nor an odometer are kept apart', async () => {
+  const res: ProcessingResult = {
+    schemaVersion: 1, processor: 't', subject: 'unrecognized', imageName: 'f.jpg', imageSize: null, status: 'no_numbers',
+    values: [], fields: {}, warnings: ['x'], error: { code: 'no_numbers', message: 'x' }, processedAt: '2026-10-30T00:00:00.000Z', durationMs: 1,
+  };
+  const r = applyResult(newRecord('f', 'f.jpg', 1), res);
+  assert.equal(r.kind, 'unrecognized');
+  assert.equal(r.status, 'review');
 });

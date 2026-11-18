@@ -33,7 +33,7 @@ interface ViewerProps {
   onClose: () => void;
 }
 
-const FIELD_LABEL: Record<string, string> = { amount: 'Amount', volume: 'Volume', unitPrice: 'Unit price', unknown: 'Unclassified' };
+const FIELD_LABEL: Record<string, string> = { amount: 'Amount', volume: 'Volume', unitPrice: 'Unit price', odometer: 'Odometer', unknown: 'Unclassified' };
 
 /** Full-size view of the original photo with the detected numbers outlined. */
 export function ImageViewer({ record, url, onClose }: ViewerProps) {

@@ -188,6 +188,88 @@ proxies: a real forest photo with truck registration plates or signage has not
 been measured here, so false readings on such photos remain possible but should
 be rare, and are always flagged for review.
 
+## 3b. Odometer reader and automatic separation
+
+A folder can mix pump photos and dashboard photos. Each photo is sorted by what
+it turns out to be:
+
+```
+photo → pump reader (strict) ── pump-like? ──► fuel_pump result
+                │ no
+                └─► odometer reader (decoded at up to 2600 px) ── found? ──► odometer result
+                          │ no
+                          └─► "unrecognized" (nothing filled in, kept apart)
+```
+
+The pump reader goes first because it is the stricter test (§3a): two lines of
+7-segment digits with a decimal point. Dashboards, trees and fences do not pass
+it. The odometer reader only runs on what the pump reader rejects.
+
+**Odometer reader** (`src/processor/odometer/`). Dashboards use ordinary and
+dot-matrix fonts, not 7-segment digits, so this is a separate reader. It has no
+OCR engine and no download:
+
+1. Threshold locally in both polarities (light on dark TFT, dark on light),
+   at full and at half size (dust and speckle that break glyphs apart at full
+   size average out at half size).
+2. Connected components → glyphs. A wide blob (letters that touch) is split at
+   its thinnest column.
+3. Each glyph is classified by a tiny network (one hidden layer, 64 units,
+   about 110 KB of weights) into 0-9, `D`, `m`, `k` or other. It is trained
+   offline by `tools/train_glyphs.py` **on synthetic renders only**: system
+   fonts, condensed and very bold variants, shear, blur, noise, and a 5x7
+   dot-matrix font. No photo is used for training. Accuracy on fonts the model
+   never saw: about 90%.
+4. Glyphs are grouped into lines (similar height, aligned, small gaps), and
+   then the rules that make a number an odometer apply:
+   - an **"ODO" label** to the left, or a **mi/km unit** to the right;
+   - **3-4 digits** are accepted only with the ODO label. "Range 343 miles"
+     and "Distance to Empty 252 miles" have the same shape but are not mileage;
+   - a **decimal point** (trip, mpg) or a **colon** (clock) next to the digits
+     rejects the number; so do alternating digits ("80808"), which is what
+     the fragments of a 7-segment display look like;
+   - digits taller than 6% of the photo are accepted only with the ODO label
+     (otherwise it is a pump display);
+   - a bare 5-6 digit number with neither label nor unit is returned for
+     review, never as a confident reading.
+5. A glyph slightly taller than its neighbours (a bezel edge stuck to it) is
+   read again with the extra height trimmed; a digit whose reading is
+   uncertain is listed as ambiguous and the row is marked Review.
+
+**Measured on 10 dashboard photos** (Toyota TFT in several lighting
+conditions, Ford LCD, Ram, Honda, Tundra without an odometer, Toyota hybrid
+trip screen):
+
+| | |
+|---|---|
+| Correct value | 9 of 10 |
+| Not an odometer, correctly rejected (Tundra shows range only) | 1 of 1 |
+| Confident but wrong | 0 |
+| Flagged for review | 5 (4 correct, 1 wrong: Ford `010771` read as `010711`) |
+| Non-dashboard photos giving an odometer (69 trees, fences, noise, blanks) | 0 |
+| Pump photos giving an odometer (52) | 0 |
+| Time per photo | 0.15-1.1 s |
+
+Honest reading of that table: **these 10 photos were used while building the
+reader**, so 9/10 is not an independent test. Several choices (the relaxed "O"
+shape in the label, trimming of tall glyphs, the dot-matrix training data) were
+made by looking at specific failures here. Accuracy on a different car's
+dashboard will be lower; the review flag is the safety net, not the accuracy.
+The photos and the expected mileages are not in the repository; with them in
+`images/odometer/` (plus `expected.json`) `npm test` runs a local regression
+check, and `npm run odometer -- ../images/odometer` prints a per-photo table.
+
+**Known odometer limits**
+
+- Needs the digits at least about 10 px tall in the decoded image. A small
+  odometer in a wide photo can fall below that.
+- Heavy dust or glare across the digits (one test photo) still reads, but is
+  the first thing to fail.
+- A very bold LCD font can make a "7" read as "1" when something touches it.
+- A dashboard that shows only a trip or range value, with no odometer, has
+  nothing to read and is correctly reported as not recognised.
+- Every reading is mileage as displayed. Nothing here knows the vehicle.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the
@@ -252,9 +334,12 @@ opt-in. Each adds metadata handling that has not been needed yet.
 
 **Display types**
 
-- Only **7-segment** digits are read. Dot-matrix, LED-matrix, and
-  proportional-font LCD displays will fail. They are mostly flagged as review
-  or "no numbers".
+- The **pump reader** reads only **7-segment** digits. Dot-matrix, LED-matrix,
+  and proportional-font LCD pump displays will fail. They are mostly flagged
+  as review or "no numbers". (Dashboards are handled by the odometer reader,
+  §3b.)
+- Another device with a two-number 7-segment display (a scale, a meter) would be
+  read as a pump.
 - **Light-on-dark** displays (white digits on a blue or black LCD) are tried
   with inverted thresholds, but are not read reliably yet: 0 of the 2 in the
   photo set. Both were flagged.

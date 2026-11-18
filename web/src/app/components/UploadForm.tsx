@@ -26,7 +26,7 @@ export function UploadForm({ onFiles, disabled, maxSizeLabel }: Props) {
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
     >
-      <p className="dropzone__title">Drag fuel pump photos here</p>
+      <p className="dropzone__title">Drag photos or a whole folder here</p>
       <p className="dropzone__hint">JPEG, PNG or WebP · up to {maxSizeLabel} each · photos stay on this device</p>
       <button type="button" className="btn" disabled={disabled} onClick={() => input.current?.click()}>
         Browse files

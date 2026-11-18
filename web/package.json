@@ -12,6 +12,7 @@
     "accuracy": "tsx scripts/accuracy.ts",
     "robustness": "tsx scripts/robustness.ts",
     "negatives": "tsx scripts/negatives.ts",
+    "odometer": "tsx scripts/odometer.ts",
     "debug-images": "tsx scripts/debug.ts"
   },
   "dependencies": {
