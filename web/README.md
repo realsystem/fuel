@@ -51,6 +51,7 @@ npm test             # unit tests (+ regression test when ../images exists)
 npm run typecheck    # TypeScript type check
 npm run accuracy     # per-photo accuracy report on the regression photos
 npm run robustness   # same photos under scale/rotation/blur/darkening/JPEG distortion
+npm run negatives -- <dir>   # photos that are NOT pumps: how often does it still invent numbers?
 npm run debug-images -- /tmp/out   # dump each photo's cropped display and binary mask
 ```
 

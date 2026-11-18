@@ -13,7 +13,21 @@ import { detectNumbers, type DetectedLine } from './NumberDetector.ts';
 import { normalizeLines, type RawLine } from './ResultNormalizer.ts';
 import type { ProcessingResult } from '../models/ProcessingResult.ts';
 
-export const PROCESSOR_ID = 'browser-segment@0.1.0';
+export const PROCESSOR_ID = 'browser-segment@0.2.0';
+
+/**
+ * Is this plausibly a fuel pump display? A pump shows at least two numbers
+ * (amount and volume), and at least one has a decimal point. A single stray
+ * number is what foliage, signs and print produce, so it is not enough to
+ * pre-fill anything. Measured on the sample photos: every correct reading has
+ * two lines and a decimal point; the one-line readings were all wrong.
+ */
+export function looksLikePumpDisplay(lines: RawLine[]): boolean {
+  return lines.length >= 2 && lines.some((l) => l.decimalIndex >= 0);
+}
+
+const NOT_A_PUMP_MESSAGE =
+  'No fuel pump display was recognised in this photo. If it is a pump photo, retake it closer and without reflections, or enter the values by hand.';
 
 /** How convincing a set of lines is: readable digits, weighted by confidence, plus decimal points. */
 function scoreLines(lines: DetectedLine[]): number {
@@ -85,8 +99,11 @@ export function processRgba(
     if (chosen && chosen.method !== 'mean' && chosen.ok) uncorroborated = agreeCount(chosen) < 2;
   }
 
-  const raw = chosen?.raw ?? [];
+  const found = chosen?.raw ?? [];
+  const pumpLike = looksLikePumpDisplay(found);
+  const raw = pumpLike ? found : [];
   const norm = normalizeLines(raw, cfg);
+  if (!pumpLike) norm.warnings = [NOT_A_PUMP_MESSAGE];
   if (uncorroborated && norm.status === 'ok') {
     norm.status = 'partial';
     norm.warnings.push('This photo was hard to read (reflection, glare or an unusual display) and only one method produced these numbers; please check them.');
@@ -101,7 +118,9 @@ export function processRgba(
     values: norm.values,
     fields: norm.fields,
     warnings: norm.warnings,
-    error: norm.status === 'no_numbers' ? { code: 'no_numbers', message: 'No numbers were found on this image.' } : undefined,
+    error: norm.status === 'no_numbers'
+      ? { code: 'no_numbers', message: NOT_A_PUMP_MESSAGE }
+      : undefined,
     processedAt: new Date().toISOString(),
     durationMs: Date.now() - started,
   };
