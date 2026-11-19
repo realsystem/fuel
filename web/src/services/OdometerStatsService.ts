@@ -6,7 +6,7 @@
  * A reading lower than one taken earlier cannot be right (odometers do not go
  * backwards), so it is flagged and left out instead of corrupting the distance.
  */
-import { effectiveValue, type FuelRecord } from '../models/FuelRecord.ts';
+import { effectiveValue, isTrustedCaptureSource, type FuelRecord } from '../models/FuelRecord.ts';
 import { captureTimeMs } from './TripService.ts';
 
 export interface OdometerPoint {
@@ -43,7 +43,7 @@ export interface OdometerStats {
 const MIN_SPAN_DAYS = 1;
 
 function timeOf(r: FuelRecord): number | null {
-  if (!r.capturedAt || r.capturedSource !== 'exif') return null;
+  if (!r.capturedAt || !isTrustedCaptureSource(r.capturedSource)) return null;
   const m = /^(.*?)([+-]\d{2}:\d{2}|Z)?$/.exec(r.capturedAt);
   return m ? captureTimeMs(m[1], m[2] ?? null) : null;
 }

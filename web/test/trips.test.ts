@@ -126,3 +126,12 @@ test('rows list fill-ups, then pump and odometer photos that found no partner', 
   assert.equal(s.rows[1].problem, 'no_odometer_nearby');
   assert.equal(s.rows[2].problem, 'no_pump_nearby');
 });
+
+test('a trip-meter photo near the end of a trip cross-checks the odometer difference', () => {
+  const end = odo(T('10-15', '09:50:00'), 10300);
+  end.trip = field(299.4);
+  const s = computeTrips([pump(T('10-01'), 12, 40), odo(T('10-01', '10:05:00'), 10000), pump(T('10-15'), 10, 35), end]);
+  assert.equal(s.trips[0].tripMeter?.matches, true);
+  end.trip = field(180);
+  assert.equal(computeTrips([pump(T('10-01'), 12, 40), odo(T('10-01', '10:05:00'), 10000), pump(T('10-15'), 10, 35), end]).trips[0].tripMeter?.matches, false);
+});

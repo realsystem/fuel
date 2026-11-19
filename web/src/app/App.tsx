@@ -6,6 +6,7 @@ import { ProcessingStatus, type RunState } from './components/ProcessingStatus.t
 import { ResultsTable } from './components/ResultsTable.tsx';
 import { OdometerTable } from './components/OdometerTable.tsx';
 import { OdometerStatsPanel } from './components/OdometerStatsPanel.tsx';
+import { suggestOdometerFixes } from '../services/OdometerSuggestService.ts';
 import { computeOdometerStats } from '../services/OdometerStatsService.ts';
 import { FuelEconomyPanel } from './components/FuelEconomyPanel.tsx';
 import { computeTrips, tripsToCsv } from '../services/TripService.ts';
@@ -186,6 +187,7 @@ export function App() {
   const stats = useMemo(() => computeStatistics(visible), [visible]);
   const trips = useMemo(() => computeTrips(visible), [visible]);
   const odoStats = useMemo(() => computeOdometerStats(visible), [visible]);
+  const suggestions = useMemo(() => suggestOdometerFixes(visible), [visible]);
   const detectedCount = visible.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
   const viewed = viewing ? records.find((r) => r.id === viewing) : undefined;
@@ -266,6 +268,7 @@ export function App() {
           <p className="muted small">Read from the dashboard. The odometer (total mileage) is told apart from the trip meter (a smaller distance since the last reset). Mileage is accepted only next to an “ODO” label or a mi/km unit; anything less certain is marked for you to check.</p>
           <OdometerTable
             records={odometerResults}
+            suggestions={suggestions}
             urls={urls}
             busy={busy}
             onEdit={(id, field, v) => update(id, (r) => correctField(r, field, v))}

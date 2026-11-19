@@ -13,7 +13,7 @@
  * fill makes one trip too good and the next too bad, which is why efficiency
  * outside a plausible range is flagged.
  */
-import { effectiveValue, type FuelRecord } from '../models/FuelRecord.ts';
+import { effectiveValue, isTrustedCaptureSource, type FuelRecord } from '../models/FuelRecord.ts';
 
 export interface TripConfig {
   /** An odometer photo further than this from a pump photo is not paired with it. */
@@ -62,9 +62,19 @@ export type TripIssue =
   | 'cost_implausible'
   | 'units_differ';
 
+/** A trip-meter photo taken at the end of a trip, compared with the odometer difference. */
+export interface TripMeterCheck {
+  recordId: string;
+  value: number;
+  /** Within 3 % (at least 3 units) of the distance between the two odometer readings. */
+  matches: boolean;
+}
+
 export interface Trip {
   from: FillUp;
   to: FillUp;
+  /** Trip-meter photo near the end of the trip, if any. Informational: a reset can happen at any time. */
+  tripMeter: TripMeterCheck | null;
   /** Fill-ups after `from`, up to and including `to` (partial fills first). All their fuel is counted. */
   fills: FillUp[];
   distance: number;
@@ -138,7 +148,7 @@ const usableStatus = (r: FuelRecord) => r.status === 'confirmed' || r.status ===
 
 function timeOf(r: FuelRecord): number | null {
   // A file's modified date says when the file was saved, not when the photo was taken.
-  if (!r.capturedAt || r.capturedSource !== 'exif') return null;
+  if (!r.capturedAt || !isTrustedCaptureSource(r.capturedSource)) return null;
   const m = /^(.*?)([+-]\d{2}:\d{2}|Z)?$/.exec(r.capturedAt);
   return m ? captureTimeMs(m[1], m[2] ?? null) : null;
 }
@@ -203,8 +213,22 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
     if (efficiency !== null && (efficiency < cfg.minEfficiency || efficiency > cfg.maxEfficiency)) issues.push('efficiency_implausible');
     const costPerDistance = distance > 0 ? amount / distance : null;
     if (costPerDistance !== null && costPerDistance > cfg.maxCostPerDistance) issues.push('cost_implausible');
+    // A trip-meter photo taken near the end (often the same dash photo as the odometer): if it was reset
+    // at the previous fill-up it must equal the distance, which cross-checks both odometer readings.
+    let tripMeter: TripMeterCheck | null = null;
+    let bestGap = Infinity;
+    for (const r of records) {
+      if (r.kind !== 'odometer' || !usableStatus(r)) continue;
+      const v = effectiveValue(r.trip), t = timeOf(r);
+      if (v === null || v <= 0 || t === null) continue;
+      const gap = Math.abs(t - to.time);
+      if (gap <= cfg.maxPairGapHours * 3_600_000 && gap < bestGap) {
+        bestGap = gap;
+        tripMeter = { recordId: r.id, value: v, matches: distance > 0 && Math.abs(v - distance) <= Math.max(3, distance * 0.03) };
+      }
+    }
     trips.push({
-      from, to, fills: between, distance, volume, amount, days: (to.time - from.time) / 86_400_000,
+      from, to, tripMeter, fills: between, distance, volume, amount, days: (to.time - from.time) / 86_400_000,
       efficiency, costPerDistance, unit: to.unit ?? from.unit, issues,
       provisional: from.provisional || between.some((x) => x.provisional),
     });

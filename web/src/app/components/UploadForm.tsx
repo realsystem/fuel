@@ -27,6 +27,16 @@ export function UploadForm({ onFiles, disabled, maxSizeLabel }: Props) {
       onDrop={onDrop}
     >
       <p className="dropzone__title">Drag photos or a whole folder here</p>
+      <details className="tips" onClick={(e) => e.stopPropagation()}>
+        <summary>How to photograph for best results</summary>
+        <ul>
+          <li><strong>At each fill-up, two photos:</strong> the pump screen (gallons and total), then the dash odometer, within a few minutes of each other.</li>
+          <li><strong>Pump:</strong> fill the frame with the display, avoid glare, keep the decimal point visible.</li>
+          <li><strong>Dash:</strong> show the total odometer (the big number, ideally with “ODO” or “mi” visible), not the range screen. The trip meter can be in the same photo.</li>
+          <li><strong>Keep the original files.</strong> Photos are matched by the time they were taken; sending them through some apps removes it (the time in the file name is used if there is one).</li>
+          <li>Fill to the same level each time (first click-off) and untick “Full tank” for partial fills.</li>
+        </ul>
+      </details>
       <p className="dropzone__hint">JPEG, PNG or WebP · up to {maxSizeLabel} each · photos stay on this device</p>
       <button type="button" className="btn" disabled={disabled} onClick={() => input.current?.click()}>
         Browse files

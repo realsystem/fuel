@@ -355,6 +355,22 @@ between two consecutive **full** fill-ups; partial fills (Full tank unticked) in
 and cost to the trip. Partial fills before the first full one are not used. Pump photos with no
 odometer photo, and odometer photos with no pump photo, appear as flagged rows.
 
+## 3e. Reliability helpers
+
+- **Misread-odometer suggestions** (`OdometerSuggestService.ts`). Readings are ordered by photo time; the
+  longest run that never goes down is taken as right. For a reading outside it, every single-digit
+  change is tried, and one that fits between the nearest consistent neighbours (and a generous
+  distance-per-day bound) is offered as "Maybe 010771? Check the photo" with a **Use** button. If more
+  than one change fits, nothing is offered. A suggestion is never applied automatically.
+- **Trip meter cross-check** (`TripService`, `Trip.tripMeter`). A trip-meter value from a photo within
+  6 h of the end of a trip is compared with the odometer difference (3 %, at least 3 units). It is
+  informational, because a trip meter can be reset at any time; it never removes a trip from the averages.
+- **File-name timestamps** (`CaptureTimeService.timeFromFileName`). When the metadata was stripped,
+  `PXL_20261117_184636123.jpg` (Pixel; UTC), `IMG_20261117_104636.jpg`, `20261117_104636.jpg` and
+  `2026-11-17 10.46.36.jpg` (local time, using the browser's current offset) give a capture time with
+  source `name`. Order of trust: EXIF, then file name, then the file's saved date (never used for
+  pairing). Names with no time (`IMG_1234.jpg`) give nothing.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the

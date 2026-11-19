@@ -122,7 +122,7 @@ export function importCsv(text: string, newId: () => string): ImportResult {
       status,
       imported: true,
       capturedAt: capRaw || null,
-      capturedSource: capRaw ? (srcRaw === 'file' ? 'file' : 'exif') : null,
+      capturedSource: capRaw ? (srcRaw === 'file' ? 'file' : srcRaw === 'name' ? 'name' : 'exif') : null,
       volume: fieldOf(vol.value, edited),
       amount: fieldOf(amt.value, edited),
       // A unit price that was only calculated is recalculated; one that was read or typed is kept.

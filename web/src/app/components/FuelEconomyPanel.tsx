@@ -108,6 +108,13 @@ export function FuelEconomyPanel({ summary, onExport, onToggleFull }: Props) {
                     ) : (
                       <span className={`badge badge--${t.provisional ? 'detected' : 'confirmed'}`}>{t.provisional ? 'Unconfirmed' : 'OK'}</span>
                     )}
+                    {t.tripMeter ? (
+                      <div className="note">
+                        {t.tripMeter.matches
+                          ? `Trip meter (${t.tripMeter.value}) agrees with the odometer.`
+                          : `Trip meter shows ${t.tripMeter.value}, the odometers give ${t.distance}. Fine if it was reset at another time; otherwise check an odometer reading.`}
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))}
