@@ -8,17 +8,21 @@ import { OdometerTable } from './components/OdometerTable.tsx';
 import { OdometerStatsPanel } from './components/OdometerStatsPanel.tsx';
 import { suggestOdometerFixes } from '../services/OdometerSuggestService.ts';
 import { computeOdometerStats } from '../services/OdometerStatsService.ts';
+import { ManualEntry } from './components/ManualEntry.tsx';
+import { ReportPanel } from './components/ReportPanel.tsx';
+import { buildReport, reportToCsv } from '../services/ReportService.ts';
+import { manualFillUp, type ManualEntry as ManualEntryData } from '../services/ManualEntryService.ts';
 import { FuelEconomyPanel } from './components/FuelEconomyPanel.tsx';
 import { computeTrips, tripsToCsv } from '../services/TripService.ts';
 import { StatisticsPanel } from './components/StatisticsPanel.tsx';
-import { isCorrected, type FuelField, type FuelRecord } from '../models/FuelRecord.ts';
+import { isCorrected, type FuelField, type FuelGrade, type FuelRecord } from '../models/FuelRecord.ts';
 import type { ImageProcessingService } from '../services/ImageProcessingService.ts';
 import { BrowserSegmentProcessor } from '../services/BrowserSegmentProcessor.ts';
 import {
   applyResult, confirmRecord, correctField, newRecord, unconfirmRecord,
 } from '../services/RecordService.ts';
 import { computeStatistics } from '../services/StatisticsService.ts';
-import { csvFileName, recordsToCsv } from '../services/ExportService.ts';
+import { csvCell, csvFileName, recordsToCsv } from '../services/ExportService.ts';
 import { dedupeRecords, importCsv, IMPORT_LIMITS, recordKey as recordKeyOf } from '../services/ImportService.ts';
 import { captureTimeOf } from '../services/CaptureTimeService.ts';
 import { formatBytes, validateImageFile } from '../utils/imageValidation.ts';
@@ -83,6 +87,17 @@ export function App() {
   /** Import a CSV exported earlier. Nothing is saved by this tool: the file is the history. */
   const toggleFull = (id: string) =>
     setRecords((rs) => rs.map((r) => (r.id === id ? { ...r, fullTank: !r.fullTank } : r)));
+
+  const setDetails = (id: string, patch: { tag?: string; grade?: FuelGrade; userNote?: string }) =>
+    setRecords((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  /** Returns an error message, or null when the fill-up was added. */
+  const addManual = (e: ManualEntryData): string | null => {
+    const res = manualFillUp(e, newId);
+    if (!res.ok) return res.error;
+    setRecords((rs) => [...rs, ...res.records]);
+    return null;
+  };
 
   const importFile = async (file: File) => {
     setImportNote(null);
@@ -166,6 +181,15 @@ export function App() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
+  const exportReport = () => {
+    const blob = new Blob([reportToCsv(report, csvCell)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = csvFileName().replace(/\.csv$/, '-report.csv');
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
   const exportTrips = () => {
     const blob = new Blob([tripsToCsv(trips)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -187,6 +211,8 @@ export function App() {
   const stats = useMemo(() => computeStatistics(visible), [visible]);
   const trips = useMemo(() => computeTrips(visible), [visible]);
   const odoStats = useMemo(() => computeOdometerStats(visible), [visible]);
+  const report = useMemo(() => buildReport(trips), [trips]);
+  const knownTags = useMemo(() => [...new Set(visible.map((r) => r.tag).filter(Boolean))].sort(), [visible]);
   const suggestions = useMemo(() => suggestOdometerFixes(visible), [visible]);
   const detectedCount = visible.filter((r) => r.status === 'detected' && r.kind !== 'odometer').length;
   const busy = run !== null;
@@ -233,6 +259,8 @@ export function App() {
           <span className="muted small">This page saves nothing. When you are done, export your data and keep the file; import it here next time to continue from where you stopped.</span>
         </div>
         {importNote ? <p className={importNote.ok ? 'muted small' : 'errors'} role={importNote.ok ? 'status' : 'alert'}>{importNote.text}</p> : null}
+        <ManualEntry onAdd={addManual} />
+        <datalist id="known-tags">{knownTags.map((t) => <option key={t} value={t} />)}</datalist>
         {hiddenDuplicates ? <p className="muted small">{hiddenDuplicates} reading{hiddenDuplicates === 1 ? '' : 's'} already in your imported data {hiddenDuplicates === 1 ? 'is' : 'are'} hidden and not counted twice.</p> : null}
       </section>
 
@@ -283,7 +311,14 @@ export function App() {
       {pumpResults.length && odometerResults.length ? (
         <section className="card" aria-labelledby="eco-h">
           <h2 id="eco-h">Fuel economy</h2>
-          <FuelEconomyPanel summary={trips} onExport={exportTrips} onToggleFull={toggleFull} />
+          <FuelEconomyPanel summary={trips} onExport={exportTrips} onToggleFull={toggleFull} onDetails={setDetails} />
+        </section>
+      ) : null}
+
+      {report.fillUps > 0 ? (
+        <section className="card report-card" aria-labelledby="rep-h">
+          <h2 id="rep-h">Report</h2>
+          <ReportPanel report={report} onCsv={exportReport} />
         </section>
       ) : null}
 

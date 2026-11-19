@@ -13,7 +13,7 @@
  * fill makes one trip too good and the next too bad, which is why efficiency
  * outside a plausible range is flagged.
  */
-import { effectiveValue, isTrustedCaptureSource, type FuelRecord } from '../models/FuelRecord.ts';
+import { effectiveValue, isTrustedCaptureSource, type FuelGrade, type FuelRecord } from '../models/FuelRecord.ts';
 
 export interface TripConfig {
   /** An odometer photo further than this from a pump photo is not paired with it. */
@@ -51,6 +51,9 @@ export interface FillUp {
   pairGapMinutes: number;
   /** The tank was filled to the same level as before. Partial fills are rolled into the next full one. */
   fullTank: boolean;
+  tag: string;
+  grade: FuelGrade;
+  userNote: string;
   /** True when any record behind this fill-up is not confirmed yet. */
   provisional: boolean;
 }
@@ -102,6 +105,9 @@ export interface FillUpRow {
   amount: number | null;
   unitPrice: number | null;
   fullTank: boolean | null;
+  tag: string;
+  grade: FuelGrade;
+  userNote: string;
   fillUp: FillUp | null;
   /** The trip that ended at this fill-up. */
   trip: Trip | null;
@@ -186,7 +192,7 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
       time: p.t!, date: new Date(p.t!).toISOString().slice(0, 10),
       volume: p.volume, amount: p.amount, odometer: o.value, unit: o.r.odometerUnit,
       pairGapMinutes: Math.round(c.gap / 60_000),
-      fullTank: p.r.fullTank,
+      fullTank: p.r.fullTank, tag: p.r.tag, grade: p.r.grade, userNote: p.r.userNote,
       provisional: p.r.status !== 'confirmed' || o.r.status !== 'confirmed',
     });
   }
@@ -258,7 +264,7 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
     return {
       kind: 'fill_up', recordId: f.recordId, odometerRecordId: f.odometerRecordId, fileName: f.fileName,
       date: f.date, time: f.time, odometer: f.odometer, volume: f.volume, amount: f.amount,
-      unitPrice: up ?? (f.volume > 0 ? f.amount / f.volume : null), fullTank: f.fullTank, fillUp: f,
+      unitPrice: up ?? (f.volume > 0 ? f.amount / f.volume : null), fullTank: f.fullTank, tag: f.tag, grade: f.grade, userNote: f.userNote, fillUp: f,
       trip: tripEndingAt.get(f.recordId) ?? null, role, problem: null,
     };
   });
@@ -268,7 +274,7 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
     rows.push({
       kind: 'pump_only', recordId: p.r.id, odometerRecordId: null, fileName: p.r.fileName,
       date: p.t === null ? null : new Date(p.t).toISOString().slice(0, 10), time: p.t, odometer: null,
-      volume: p.volume, amount: p.amount, unitPrice: up ?? p.amount / p.volume, fullTank: p.r.fullTank,
+      volume: p.volume, amount: p.amount, unitPrice: up ?? p.amount / p.volume, fullTank: p.r.fullTank, tag: p.r.tag, grade: p.r.grade, userNote: p.r.userNote,
       fillUp: null, trip: null, role: null, problem: p.t === null ? 'no_capture_time' : 'no_odometer_nearby',
     });
   }
@@ -277,7 +283,7 @@ export function computeTrips(records: FuelRecord[], cfg: TripConfig = TRIP_CONFI
     rows.push({
       kind: 'odometer_only', recordId: o.r.id, odometerRecordId: o.r.id, fileName: o.r.fileName,
       date: o.t === null ? null : new Date(o.t).toISOString().slice(0, 10), time: o.t, odometer: o.value,
-      volume: null, amount: null, unitPrice: null, fullTank: null, fillUp: null, trip: null, role: null,
+      volume: null, amount: null, unitPrice: null, fullTank: null, tag: '', grade: '', userNote: '', fillUp: null, trip: null, role: null,
       problem: o.t === null ? 'no_capture_time' : 'no_pump_nearby',
     });
   }

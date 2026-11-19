@@ -203,3 +203,31 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
 .tips summary { cursor: pointer; color: var(--accent); text-align: center; }
 .tips ul { margin: 8px 0 0; padding-left: 18px; }
 .tips li { margin: 4px 0; }
+
+.txt { font: inherit; font-size: 0.85rem; background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; width: 100%; min-width: 6.5em; }
+.manual { margin: 10px 0; font-size: 0.9rem; }
+.manual summary { cursor: pointer; color: var(--accent); }
+.manual__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; margin-top: 10px; }
+.manual__form label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--muted); }
+.manual__form input, .manual__form select { font: inherit; background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.manual__check { flex-direction: row !important; align-items: center; gap: 6px !important; }
+.manual__err { grid-column: 1 / -1; margin: 0; color: var(--bad); }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 12px 0; }
+.chart { margin: 0; }
+.chart figcaption { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart__grid { stroke: var(--border); stroke-width: 1; }
+.chart__axis { fill: var(--muted); font-size: 10px; }
+.chart__bar { fill: var(--accent); }
+.chart__line { stroke: var(--info); stroke-width: 2; }
+.chart__dot { fill: var(--info); }
+@media print {
+  body { background: #fff; color: #000; }
+  .masthead, .no-print, .card:not(.report-card) { display: none !important; }
+  .support { display: none !important; }
+  .report-card, .report-card .stat, .report-card table, .report-card tr, .report-card td, .report-card th { background: #fff !important; border-color: #ccc; box-shadow: none; }
+  .report-card { border: none; padding: 0; }
+  .report-card .muted, .report-card dt { color: #444; }
+  .report-card h2, .report-card .stat dd, .report-card td, .report-card th { color: #000; }
+  .chart__axis { fill: #333; } .chart__grid { stroke: #ccc; } .chart__bar { fill: #2a7a3d; } .chart__line { stroke: #1f5fa8; } .chart__dot { fill: #1f5fa8; }
+}

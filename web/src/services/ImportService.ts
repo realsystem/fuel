@@ -8,7 +8,7 @@
  * with a reason instead of being guessed at. Nothing is ever executed or
  * fetched from it, and no photo is involved.
  */
-import { emptyField, effectiveValue, type FieldValue, type FuelRecord, type RecordKind, type RecordStatus } from '../models/FuelRecord.ts';
+import { cleanText, emptyField, effectiveValue, FUEL_GRADES, TEXT_LIMITS, type FieldValue, type FuelGrade, type FuelRecord, type RecordKind, type RecordStatus } from '../models/FuelRecord.ts';
 import { newRecord } from './RecordService.ts';
 
 export const IMPORT_LIMITS = { maxBytes: 2 * 1024 * 1024, maxRows: 5000 } as const;
@@ -64,12 +64,17 @@ function num(raw: string | undefined, range: readonly [number, number], integer 
 
 const TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)?$/;
 
-function fieldOf(value: number | null, asCorrection: boolean): FieldValue {
+export function fieldOf(value: number | null, asCorrection: boolean): FieldValue {
   if (value === null) return emptyField();
   return asCorrection
     ? { detected: null, detectedText: null, confidence: 1, corrected: value, derived: null }
     : { detected: value, detectedText: String(value), confidence: 1, corrected: null, derived: null };
 }
+
+const gradeOf = (v: string | undefined): FuelGrade => {
+  const g = (v ?? '').trim().toLowerCase();
+  return (FUEL_GRADES as readonly string[]).includes(g) ? (g as FuelGrade) : '';
+};
 
 export function importCsv(text: string, newId: () => string): ImportResult {
   const fail = (error: string): ImportResult => ({ records: [], skipped: [], error });
@@ -131,6 +136,9 @@ export function importCsv(text: string, newId: () => string): ImportResult {
       trip: fieldOf(trip.value, edited),
       odometerUnit: unit === 'mi' || unit === 'km' ? unit : null,
       fullTank: (get(r, 'full_tank') ?? '').trim().toLowerCase() !== 'no',
+      tag: kind === 'fuel_pump' ? cleanText(unguard(get(r, 'tag') ?? ''), TEXT_LIMITS.tag) : '',
+      grade: kind === 'fuel_pump' ? gradeOf(get(r, 'fuel_grade')) : '',
+      userNote: kind === 'fuel_pump' ? cleanText(unguard(get(r, 'notes') ?? ''), TEXT_LIMITS.userNote) : '',
       processedAt: (get(r, 'processed_at') ?? '').trim().slice(0, 40) || null,
       note: 'Imported from a CSV file (no photo here).',
     };

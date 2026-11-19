@@ -70,3 +70,15 @@ test('full_tank = no survives the round trip', () => {
   const res = importCsv(recordsToCsv([p]), id);
   assert.equal(res.records[0].fullTank, false);
 });
+
+test('tag, grade and notes survive the round trip; junk grades and control characters do not', async () => {
+  const p = pump('2026-10-01T10:00:00-08:00', 12, 40);
+  p.tag = 'Moab trip'; p.grade = 'premium'; p.userNote = '=cmd, "quoted"';
+  const res = importCsv(recordsToCsv([p]), id);
+  assert.equal(res.records[0].tag, 'Moab trip');
+  assert.equal(res.records[0].grade, 'premium');
+  assert.equal(res.records[0].userNote, '=cmd, "quoted"');
+  const bad = importCsv('file_name,kind,fuel_volume,fuel_grade,tag\nx.jpg,fuel_pump,10,nitro,a\u0007b\n', id);
+  assert.equal(bad.records[0].grade, '');
+  assert.equal(bad.records[0].tag, 'a b');
+});

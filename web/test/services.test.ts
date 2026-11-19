@@ -127,8 +127,8 @@ test('CSV has a header, fixed decimals and correction flag', () => {
   const recs = [confirmRecord(record('a', 40, 10)), correctField(record('b', 20, 4.348), 'amount', 20.5)];
   const lines = recordsToCsv(recs).trimEnd().split('\r\n');
   assert.equal(lines[0], CSV_COLUMNS.join(','));
-  assert.equal(lines[1], 'a.jpg,fuel_pump,,,10.000,40.00,4.000,derived,,,,yes,ok,confirmed,no,2026-10-30T00:00:00.000Z');
-  assert.match(lines[2], /^b\.jpg,fuel_pump,,,4\.348,20\.50,4\.715,derived,,,,yes,ok,detected,yes,/);
+  assert.equal(lines[1], 'a.jpg,fuel_pump,,,10.000,40.00,4.000,derived,,,,yes,,,,ok,confirmed,no,2026-10-30T00:00:00.000Z');
+  assert.match(lines[2], /^b\.jpg,fuel_pump,,,4\.348,20\.50,4\.715,derived,,,,yes,,,,ok,detected,yes,/);
 });
 
 test('CSV cells are quoted and protected against formula injection', () => {
@@ -171,7 +171,7 @@ test('odometer results become odometer records with their own field, kept out of
   assert.equal(edited.odometer.detected, 53164);
   assert.equal(computeStatistics([r]).imagesProcessed, 0);
   const csv = recordsToCsv([edited]).split('\r\n');
-  assert.match(csv[1], /^o\.jpg,odometer,,,,,,missing,53165,mi,,,ok,detected,yes,/);
+  assert.match(csv[1], /^o\.jpg,odometer,,,,,,missing,53165,mi,,,,,,ok,detected,yes,/);
 });
 
 test('photos that are neither a pump nor an odometer are kept apart', async () => {
