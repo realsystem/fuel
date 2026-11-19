@@ -56,6 +56,10 @@ export interface FuelRecord {
   imported: boolean;
   /** Pump records: the tank was filled to the same level as at the previous fill-up. Partial fills are rolled into the next full one. */
   fullTank: boolean;
+  /** Pump records: the person's own labels for a fill-up ("Moab trip", "towing"), fuel grade and a free note. */
+  tag: string;
+  grade: FuelGrade;
+  userNote: string;
   result: ProcessingResult | null;
   /** Human-readable reason when status is 'review' or 'failed'. */
   note: string | null;
@@ -88,3 +92,14 @@ export function isCorrected(r: FuelRecord): boolean {
 
 /** Capture times good enough for pairing and ordering photos (a file's saved date is not). */
 export const isTrustedCaptureSource = (s: FuelRecord['capturedSource']) => s === 'exif' || s === 'name';
+
+export const FUEL_GRADES = ['', 'regular', 'mid', 'premium', 'diesel', 'e85', 'other'] as const;
+export type FuelGrade = (typeof FUEL_GRADES)[number];
+export const GRADE_LABEL: Record<FuelGrade, string> = { '': '–', regular: 'Regular', mid: 'Mid', premium: 'Premium', diesel: 'Diesel', e85: 'E85', other: 'Other' };
+export const TEXT_LIMITS = { tag: 40, userNote: 200 } as const;
+
+/** Free text typed by the person or read from a CSV: no control characters, trimmed, limited in length. */
+export function cleanText(v: string, max: number): string {
+  // eslint-disable-next-line no-control-regex
+  return v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, max);
+}

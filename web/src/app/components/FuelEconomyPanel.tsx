@@ -1,15 +1,17 @@
+import { FUEL_GRADES, GRADE_LABEL, TEXT_LIMITS, cleanText, type FuelGrade } from '../../models/FuelRecord.ts';
 import { ISSUE_TEXT, type TripSummary } from '../../services/TripService.ts';
 
 interface Props {
   summary: TripSummary;
   onExport: () => void;
   onToggleFull: (pumpRecordId: string) => void;
+  onDetails: (pumpRecordId: string, patch: { tag?: string; grade?: FuelGrade; userNote?: string }) => void;
 }
 
 const fmt = (v: number | null, d: number) => (v === null ? '–' : v.toFixed(d));
 
 /** Miles (or km) per fuel unit, cost per distance, and the fill-up to fill-up trips behind them. */
-export function FuelEconomyPanel({ summary, onExport, onToggleFull }: Props) {
+export function FuelEconomyPanel({ summary, onExport, onToggleFull, onDetails }: Props) {
   const { totals, trips } = summary;
   const unit = trips.find((t) => t.unit)?.unit ?? 'mi';
   const effLabel = unit === 'km' ? 'km per fuel unit' : 'mpg';
@@ -40,6 +42,9 @@ export function FuelEconomyPanel({ summary, onExport, onToggleFull }: Props) {
                   <th className="num">Amount</th>
                   <th className="num">Price / unit</th>
                   <th>Full tank</th>
+                  <th>Tag</th>
+                  <th>Grade</th>
+                  <th>Note</th>
                   <th className="num">{effLabel}</th>
                   <th>Status</th>
                 </tr>
@@ -55,6 +60,25 @@ export function FuelEconomyPanel({ summary, onExport, onToggleFull }: Props) {
                     <td data-label="Full tank">
                       {r.fullTank === null ? '–' : (
                         <input type="checkbox" checked={r.fullTank} onChange={() => onToggleFull(r.recordId)} aria-label={`Full tank: ${r.fileName}`} />
+                      )}
+                    </td>
+                    <td data-label="Tag">
+                      {r.kind === 'odometer_only' ? '–' : (
+                        <input className="txt" list="known-tags" maxLength={TEXT_LIMITS.tag} key={r.recordId + ':' + r.tag} defaultValue={r.tag} placeholder="e.g. towing"
+                          aria-label={`Tag: ${r.fileName}`} onBlur={(e) => onDetails(r.recordId, { tag: cleanText(e.target.value, TEXT_LIMITS.tag) })} />
+                      )}
+                    </td>
+                    <td data-label="Grade">
+                      {r.kind === 'odometer_only' ? '–' : (
+                        <select className="txt" value={r.grade} aria-label={`Fuel grade: ${r.fileName}`} onChange={(e) => onDetails(r.recordId, { grade: e.target.value as FuelGrade })}>
+                          {FUEL_GRADES.map((g) => <option key={g} value={g}>{GRADE_LABEL[g]}</option>)}
+                        </select>
+                      )}
+                    </td>
+                    <td data-label="Note">
+                      {r.kind === 'odometer_only' ? '–' : (
+                        <input className="txt" maxLength={TEXT_LIMITS.userNote} key={r.recordId + ':' + r.userNote} defaultValue={r.userNote} placeholder="station, trip…"
+                          aria-label={`Note: ${r.fileName}`} onBlur={(e) => onDetails(r.recordId, { userNote: cleanText(e.target.value, TEXT_LIMITS.userNote) })} />
                       )}
                     </td>
                     <td data-label={effLabel} className="num">{fmt(r.trip?.efficiency ?? null, 1)}</td>

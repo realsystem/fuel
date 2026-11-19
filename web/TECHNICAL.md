@@ -371,6 +371,21 @@ odometer photo, and odometer photos with no pump photo, appear as flagged rows.
   source `name`. Order of trust: EXIF, then file name, then the file's saved date (never used for
   pairing). Names with no time (`IMG_1234.jpg`) give nothing.
 
+## 3f. Fill-up details, manual entry and the report
+
+- **Tag, fuel grade, note** (pump rows only): editable in the Fill-ups table, saved in the CSV as `tag`,
+  `fuel_grade`, `notes`, read back on import. Text is stripped of control characters and limited (40 /
+  200 characters); an unknown grade becomes blank; a leading `'` formula guard is removed.
+- **Add a fill-up by hand** (`ManualEntryService.ts`): date, odometer, fuel, amount become a pump row and
+  an odometer row with the same time, so they pair and count like photographed ones. Values are range-checked
+  and dates in the future are refused. Both rows show "no photo".
+- **Report** (`ReportService.ts`, `ReportPanel.tsx`): totals, one line per month, one per tag (a trip's tag is
+  the tag of the fill-up that ended it), best and worst trip, and two dependency-free SVG charts
+  (efficiency per trip, price per unit). Distance and efficiency use only trips without a "check" flag;
+  money spent counts every paired fill-up. **Print / save as PDF** uses the browser's print with a print
+  stylesheet that shows only the report; **Export report CSV** writes the month and tag lines.
+- Not done on purpose: currency symbols (amounts are shown as typed or read) and unit conversion.
+
 ## 4. Ready for backend offloading
 
 - `ImageProcessingService` (`src/services/ImageProcessingService.ts`) is the

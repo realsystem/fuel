@@ -43,7 +43,7 @@ export function OdometerTable(props: Props) {
             <tr key={r.id} className={`row row--${r.status}`}>
               <td data-label="Image">
                 {r.imported ? (
-                  <span className="img-cell img-cell--none"><span className="img-cell__name">{r.fileName}</span> <span className="tag">imported</span></span>
+                  <span className="img-cell img-cell--none"><span className="img-cell__name">{r.fileName}</span> <span className="tag">no photo</span></span>
                 ) : (
                   <button type="button" className="img-cell" onClick={() => props.onView(r.id)} title="Inspect the original photo">
                     <img src={urls.get(r.id)} alt="" loading="lazy" />
