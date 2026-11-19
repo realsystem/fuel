@@ -196,3 +196,10 @@ h2 { font-size: 1.1rem; margin: 0 0 12px; }
 @media (max-width: 640px) {
   .back-to-main { position: static; margin-bottom: 10px; font-size: 0.7rem; }
 }
+
+.suggest { margin-top: 6px; font-size: 0.85rem; color: var(--warn); }
+.suggest .btn { margin-left: 4px; }
+.tips { margin: 8px auto 12px; max-width: 640px; text-align: left; font-size: 0.85rem; color: var(--muted); }
+.tips summary { cursor: pointer; color: var(--accent); text-align: center; }
+.tips ul { margin: 8px 0 0; padding-left: 18px; }
+.tips li { margin: 4px 0; }

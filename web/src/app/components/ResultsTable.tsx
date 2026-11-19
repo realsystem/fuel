@@ -60,9 +60,9 @@ export function ResultsTable(props: Props) {
               </td>
               <td data-label="Date">
                 {r.capturedAt ? (
-                  <span title={r.capturedSource === 'exif' ? `Taken ${r.capturedAt.replace('T', ' ')}` : 'From the file date (no camera timestamp found); may be when it was saved, not taken'}>
+                  <span title={r.capturedSource === 'exif' ? `Taken ${r.capturedAt.replace('T', ' ')}` : r.capturedSource === 'name' ? `No camera timestamp; time from the file name: ${r.capturedAt.replace('T', ' ')}` : 'From the file date (no camera timestamp found); may be when it was saved, not taken'}>
                     {r.capturedAt.slice(0, 10)}
-                    {r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : null}
+                    {r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : r.capturedSource === 'name' ? <span className="muted"> (from name)</span> : null}
                   </span>
                 ) : <span className="muted">–</span>}
               </td>

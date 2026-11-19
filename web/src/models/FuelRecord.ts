@@ -36,8 +36,11 @@ export interface FuelRecord {
   fileSize: number;
   /** When the photo was taken, "YYYY-MM-DDTHH:MM:SS±HH:MM" (local time of the camera). */
   capturedAt: string | null;
-  /** 'exif' = from the photo's metadata; 'file' = the file's modified date (less reliable). */
-  capturedSource: 'exif' | 'file' | null;
+  /**
+   * 'exif' = the photo's metadata; 'name' = a timestamp in the file name (used when the metadata was
+   * stripped); 'file' = the file's modified date (not trusted: it may be the day it was copied).
+   */
+  capturedSource: 'exif' | 'name' | 'file' | null;
   /** Set from the processing result: pump photos and odometer photos are separated automatically. */
   kind: RecordKind | null;
   status: RecordStatus;
@@ -82,3 +85,6 @@ export function valueSource(f: FieldValue): ValueSource {
 export function isCorrected(r: FuelRecord): boolean {
   return r.amount.corrected !== null || r.volume.corrected !== null || r.unitPrice.corrected !== null || r.odometer.corrected !== null || r.trip.corrected !== null;
 }
+
+/** Capture times good enough for pairing and ordering photos (a file's saved date is not). */
+export const isTrustedCaptureSource = (s: FuelRecord['capturedSource']) => s === 'exif' || s === 'name';

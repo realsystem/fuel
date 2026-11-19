@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { effectiveValue, valueSource, type FuelRecord, type RecordStatus } from '../../models/FuelRecord.ts';
 import { canConfirm } from '../../services/RecordService.ts';
+import type { OdometerSuggestion } from '../../services/OdometerSuggestService.ts';
 import { formatFixed, parseNumber } from '../../utils/numberFormatting.ts';
 
 interface Props {
   records: FuelRecord[];
+  /** Possible corrections for readings that contradict the others. Never applied automatically. */
+  suggestions?: OdometerSuggestion[];
   urls: Map<string, string>;
   busy: boolean;
   onEdit: (id: string, field: 'odometer' | 'trip', value: number | null) => void;
@@ -21,6 +24,7 @@ const STATUS_LABEL: Record<RecordStatus, string> = {
 /** Odometer photos: one editable mileage per photo, same review workflow as pump photos. */
 export function OdometerTable(props: Props) {
   const { records, urls, busy } = props;
+  const suggestionFor = (id: string) => props.suggestions?.find((s) => s.recordId === id);
   return (
     <div className="table-wrap">
       <table className="results">
@@ -48,7 +52,7 @@ export function OdometerTable(props: Props) {
                 )}
               </td>
               <td data-label="Date">
-                {r.capturedAt ? <span>{r.capturedAt.slice(0, 10)}{r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : null}</span> : <span className="muted">–</span>}
+                {r.capturedAt ? <span>{r.capturedAt.slice(0, 10)}{r.capturedSource === 'file' ? <span className="muted"> (file date)</span> : r.capturedSource === 'name' ? <span className="muted" title="No camera timestamp; the time comes from the file name"> (from name)</span> : null}</span> : <span className="muted">–</span>}
               </td>
               <td data-label="Odometer" className="num">
                 <OdometerCell record={r} field="odometer" onChange={(v) => props.onEdit(r.id, 'odometer', v)} />
@@ -59,6 +63,15 @@ export function OdometerTable(props: Props) {
               <td data-label="Status">
                 <span className={`badge badge--${r.status}`}>{STATUS_LABEL[r.status]}</span>
                 {r.note ? <div className="note" title={r.note}>{r.note}</div> : null}
+                {(() => {
+                  const s = suggestionFor(r.id);
+                  return s ? (
+                    <div className="suggest">
+                      <span>Does not fit the other readings{s.before !== null ? ` (${s.before}` : ''}{s.before !== null && s.after !== null ? ` … ${s.after})` : s.before !== null ? ')' : ''}. Maybe <strong>{s.suggested}</strong>? Check the photo.</span>{' '}
+                      <button type="button" className="btn btn--small" onClick={() => props.onEdit(r.id, 'odometer', s.suggested)}>Use {s.suggested}</button>
+                    </div>
+                  ) : null;
+                })()}
               </td>
               <td className="actions">
                 {r.status === 'confirmed' ? (
